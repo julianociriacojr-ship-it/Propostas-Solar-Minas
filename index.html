@@ -1,0 +1,2631 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Gerador de Propostas — Solar Minas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.4.0/dist/docx-preview.min.js"></script>
+<style>
+  :root{
+    --bg:#faf8f5; --panel:#ffffff; --ink:#2b241f; --sub:#7a6f66;
+    --line:#e6ddd3; --accent:#c0504d; --accent-dark:#9c3f3c; --ok:#3f7a5a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;padding:24px 16px 80px;}
+  .wrap{max-width:960px;margin:0 auto;}
+  h1{font-size:22px;letter-spacing:.02em;margin:0 0 4px;}
+  .sub{color:var(--sub);font-size:13px;margin:0 0 28px;}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
+  .step h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent-dark);margin:0 0 12px;display:flex;align-items:center;gap:8px;}
+  .step h2 .n{background:var(--accent);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
+  input[type=file]{font-size:13px;}
+  .file-status{font-size:12px;color:var(--sub);margin-top:6px;}
+  .file-status.ok{color:var(--ok);}
+  table.catalog{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;}
+  table.catalog th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--sub);border-bottom:1px solid var(--line);padding:6px 8px;}
+  table.catalog td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.catalog tr.selected{background:#fbeceb;}
+  .pcc-grid{width:100%;border-collapse:collapse;font-size:13px;}
+  .pcc-grid th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--sub);padding:4px 6px;}
+  .pcc-grid td{padding:3px;}
+  .pcc-grid input{width:100%;border:1px solid var(--line);border-radius:5px;padding:5px 6px;font-size:13px;}
+  .pcc-grid input[readonly]{background:#f4f0ea;color:var(--sub);}
+  .pcc-grid tr.pcc-divider td{background:#f4ede4;color:#9C3B0F;font-weight:bold;font-size:12px;padding:6px 8px;border-top:1px solid var(--line);}
+  .pcc-grid tr.pcc-divider input.divider-nome-input{background:transparent;border:1px dashed transparent;color:#9C3B0F;font-weight:bold;font-size:12px;padding:2px 4px;border-radius:4px;min-width:160px;font-family:inherit;}
+  .pcc-grid tr.pcc-divider input.divider-nome-input:hover, .pcc-grid tr.pcc-divider input.divider-nome-input:focus{border-color:#c9a583;background:#fff;outline:none;}
+  button{font-family:inherit;font-size:13px;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{background:var(--accent-dark);}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--accent);}
+  .row-actions{display:flex;gap:8px;margin-top:10px;}
+  .totalrow{font-weight:bold;text-align:right;padding-top:8px;font-size:14px;}
+  .fields-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .fields-grid label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;}
+  .fields-grid input{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;}
+  .generate{position:sticky;bottom:16px;display:flex;justify-content:center;margin-top:20px;}
+  .generate button{padding:14px 34px;font-size:14px;border-radius:30px;box-shadow:0 6px 18px rgba(192,80,77,.35);}
+  .log{font-size:12px;background:#1e1b19;color:#e9e2d8;border-radius:8px;padding:12px;white-space:pre-wrap;max-height:220px;overflow:auto;margin-top:10px;}
+  .hint{font-size:12px;color:var(--sub);margin-top:4px;}
+  .toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;}
+  .nota-box{margin-top:12px;}
+  .nota-box label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
+  .nota-box textarea{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:44px;}
+  .preview-box{font-size:12px;background:#fffaf3;border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre-wrap;max-height:360px;overflow:auto;margin-top:10px;}
+  .actions-row{display:flex;justify-content:center;gap:10px;margin-top:20px;flex-wrap:wrap;}
+  .search-result-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-top:6px;}
+  .search-result-row .sr-info{flex:1;font-size:13px;}
+  .search-result-row .sr-info .sr-code{color:var(--sub);font-size:11px;}
+  .included-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-top:6px;background:#fbfaf8;}
+  .move-btns{display:flex;flex-direction:column;gap:2px;}
+  .move-btns button{padding:2px 6px;font-size:10px;line-height:1;}
+  .move-btns button:disabled{opacity:.25;cursor:default;}
+  .included-row .inc-info{flex:1;font-size:13px;}
+  .included-row .inc-info .inc-code{color:var(--sub);font-size:11px;}
+  .included-row input.photoInput{font-size:11px;width:130px;}
+  .np-form{border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:8px;background:#fbfaf8;}
+  .np-form input, .np-form textarea{border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;}
+  .np-form textarea{width:100%;margin-top:8px;min-height:50px;resize:vertical;}
+  .np-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .np-row input#npCodigo{width:150px;}
+  .np-row input#npNome{flex:1;min-width:200px;}
+  .photodir-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+  .cliente-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-top:6px;background:#fff;}
+  .cliente-info{flex:1;}
+  .cliente-nome{font-weight:bold;font-size:14px;}
+  .cliente-codigo{font-weight:normal;color:var(--sub);font-size:12px;}
+  .tipo-toggle{display:flex;gap:16px;margin-bottom:12px;font-size:14px;}
+  .tipo-toggle label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Gerador de Propostas — Solar Minas</h1>
+  <p class="sub">Catálogo, modelo e fotos ficam salvos automaticamente neste navegador. Cada proposta é salva por cliente — clique num cliente salvo pra abrir tudo carregado, ou comece uma nova.</p>
+
+  <div id="rascunhoBanner" style="display:none;align-items:center;gap:10px;background:#fff4e0;border:1px solid #e0b060;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
+    <span id="rascunhoBannerTexto" style="flex:1;"></span>
+    <button class="btn-primary" id="restaurarRascunhoBtn" style="padding:6px 12px;">Restaurar</button>
+    <button class="btn-ghost" id="descartarRascunhoBtn" style="padding:6px 12px;">Descartar</button>
+  </div>
+
+  <div class="step" style="background:#fbfaf8;">
+    <h2 id="clientesToggle" style="border:0;padding:0;cursor:pointer;user-select:none;">
+      <span class="n">📁</span>Clientes salvos <span id="clientesCount" class="hint" style="text-transform:none;font-weight:normal;"></span>
+      <span id="clientesSeta" style="margin-left:auto;">▶</span>
+    </h2>
+    <div id="clientesBody" style="display:none;">
+      <input type="text" id="clientesBusca" placeholder="Buscar por nome ou código..." style="width:100%;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;margin:10px 0 4px;">
+      <div id="listaClientesWrap"></div>
+    </div>
+    <div class="row-actions" style="margin-top:12px;">
+      <button class="btn-ghost" id="novaPropostaBtn">+ Nova proposta</button>
+      <button class="btn-primary" id="salvarClienteBtn">💾 Salvar / Atualizar cliente atual</button>
+      <span class="hint" id="rascunhoStatus" style="margin-left:auto;align-self:center;"></span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn-ghost" id="exportJsonBtn">Exportar dados (.json)</button>
+    <button class="btn-ghost" id="importJsonBtn">Importar dados (.json)</button>
+    <input type="file" id="importJsonFile" accept=".json" style="display:none;">
+  </div>
+
+  <div class="step">
+    <h2><span class="n">1</span>Itens e valores (PCC)</h2>
+    <input type="file" id="pccFile" accept=".xlsx">
+    <div class="file-status" id="pccStatus">Nenhuma PCC importada — preencha manualmente abaixo ou importe o arquivo.</div>
+    <table class="pcc-grid" id="pccTable">
+      <thead><tr><th style="width:34%">Material</th><th style="width:9%">Qtd.</th><th style="width:9%">Un.</th><th style="width:16%">Vlr. Unit. (R$)</th><th style="width:16%">Vlr. Total (R$)</th><th></th></tr></thead>
+      <tbody id="pccBody"></tbody>
+    </table>
+    <div class="row-actions">
+      <button class="btn-ghost" id="addRow">+ Adicionar item</button>
+      <button class="btn-ghost" id="pasteBtn">Colar do Excel</button>
+    </div>
+    <div class="totalrow">Total: R$ <span id="pccTotal">0,00</span></div>
+    <div class="hint" id="pccExtenso" style="text-align:right;font-style:italic;"></div>
+    <div class="row-actions" style="margin-top:8px;justify-content:space-between;">
+      <button class="btn-ghost" id="novaRevisaoBtn">🔄 Nova revisão</button>
+      <span class="hint" id="revisaoCompare"></span>
+    </div>
+    <div class="nota-box">
+      <label>Nota (opcional) — some da tabela se ficar em branco</label>
+      <textarea id="fNotaValores" placeholder="Ex: Valores válidos apenas para pagamento à vista."></textarea>
+    </div>
+  </div>
+
+  <div class="step">
+    <h2><span class="n">2</span>Catálogo de produtos (.xlsx)</h2>
+    <input type="file" id="catalogFile" accept=".xlsx">
+    <div class="file-status" id="catalogStatus">Nenhum arquivo carregado.</div>
+
+    <div class="photodir-row" style="border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;background:#fbfaf8;">
+      <div style="flex:1 1 100%;">
+        <div class="hint" style="font-weight:bold;color:var(--ink);text-transform:none;">🔗 Popular "Produtos incluídos" a partir da PCC (Passo 1)</div>
+        <div class="hint">Compara o texto de cada linha da PCC com o nome dos produtos do catálogo. Bate exato → já vem marcado; bate parecido → vem sugerido, mas você decide se inclui. Linha sem correspondência (mão de obra, frete, etc.) não aparece — normal.</div>
+      </div>
+      <button class="btn-ghost" id="sugerirPccBtn">🔗 Sincronizar com a PCC</button>
+    </div>
+    <div id="sugestaoPccWrap"></div>
+
+    <div class="hint" style="margin-top:8px;">📷 As fotos ficam salvas neste navegador junto com cada produto do catálogo (não precisa reanexar em propostas futuras).</div>
+
+    <div class="photodir-row" style="border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;background:#fbfaf8;">
+      <div style="flex:1 1 100%;">
+        <div class="hint" style="font-weight:bold;color:var(--ink);text-transform:none;">🖼️ Banco de imagens (casa pelo nome do produto)</div>
+        <div class="hint">Selecione uma pasta com fotos — pode ter mais fotos do que produtos, sem problema, e pode subir de novo sempre que trocar ou adicionar imagens. Cada arquivo é comparado com o <b>Código Interno</b> (se o nome do arquivo for igual ao código) ou com o <b>nome do produto</b> — não precisa mais nomear a foto igual ao código. As imagens ficam guardadas neste navegador: ao incluir um produto novo numa proposta, o app já procura sozinho uma foto correspondente aqui.</div>
+        <div class="hint" id="bancoImagensStatus" style="margin-top:4px;"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+        <input type="file" id="bancoImagensInput" webkitdirectory directory multiple accept="image/*">
+        <button class="btn-ghost" id="sincronizarBancoBtn">🔄 Sincronizar catálogo com o banco</button>
+      </div>
+    </div>
+    <div id="fotoPastaPreviewWrap"></div>
+    <div id="sugestaoBancoWrap"></div>
+
+    <input type="text" id="catalogSearch" placeholder="Buscar por nome ou código para adicionar..." style="display:none;width:100%;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;margin-top:14px;">
+    <div id="searchResultsWrap"></div>
+
+    <div class="toolbar" style="justify-content:flex-start;margin-top:14px;margin-bottom:0;">
+      <button class="btn-ghost" id="novoProdutoBtn">+ Novo produto</button>
+      <button class="btn-ghost" id="baixarCatalogoBtn" style="display:none;">⬇ Baixar catálogo atualizado (.xlsx)</button>
+    </div>
+    <div class="np-form" id="novoProdutoForm" style="display:none;">
+      <div class="hint" id="npFormTitulo" style="font-weight:bold;color:var(--ink);margin-bottom:8px;">Novo produto</div>
+      <div class="np-row">
+        <input id="npCodigo" placeholder="Código (gerado automático, pode editar)">
+        <input id="npNome" placeholder="Nome do produto">
+      </div>
+      <textarea id="npDesc" placeholder="Descrição breve"></textarea>
+      <textarea id="npEspec" placeholder="Especificações técnicas"></textarea>
+      <div style="margin-top:8px;">
+        <label class="hint" style="text-transform:uppercase;letter-spacing:.04em;">Foto (opcional)</label><br>
+        <input type="file" id="npFoto" accept="image/*">
+      </div>
+      <div class="row-actions" style="margin-top:10px;">
+        <button class="btn-primary" id="npSalvarBtn">Salvar produto</button>
+        <button class="btn-ghost" id="npCancelarBtn">Cancelar</button>
+      </div>
+    </div>
+
+    <div class="hint" style="margin-top:16px;font-weight:bold;color:var(--ink);">Produtos incluídos nesta proposta</div>
+    <div id="includedWrap"></div>
+  </div>
+
+  <div class="step">
+    <h2><span class="n">3</span>Tipo e modelo da proposta (.docx)</h2>
+    <div class="tipo-toggle">
+      <label><input type="radio" name="tipoProposta" value="comercial" checked> Comercial</label>
+      <label><input type="radio" name="tipoProposta" value="manutencao"> Manutenção</label>
+    </div>
+
+    <div id="modeloComercialWrap">
+      <input type="file" id="templateFile" accept=".docx">
+      <div class="file-status" id="templateStatus">Nenhum arquivo carregado.</div>
+    </div>
+    <div id="modeloManutencaoWrap" style="display:none;">
+      <input type="file" id="templateFileManutencao" accept=".docx">
+      <div class="file-status" id="templateStatusManutencao">Nenhum arquivo carregado.</div>
+    </div>
+    <div class="hint">Usa os placeholders originais do seu modelo — não precisa editar o modelo.</div>
+  </div>
+
+  <div class="step">
+    <h2><span class="n">4</span>Dados do cliente</h2>
+    <div class="fields-grid">
+      <div><label>Empresa / Cliente final</label><input id="fCliente" placeholder="Ex: IF Fit Construções e Comércio LTDA"></div>
+      <div><label>Contato responsável</label><input id="fContato" placeholder="Ex: Carlos"></div>
+      <div><label>Obra</label><input id="fObra" placeholder="Ex: Obra Residencial Teste"></div>
+      <div><label>Código do cliente / proposta</label><input id="fCodigo" placeholder="Ex: 0701"></div>
+      <div><label>Data de emissão</label><input id="fData" type="date"></div>
+      <div><label>Revisão</label><input id="fRevisao" placeholder="Ex: REV. 00" value="REV. 00"></div>
+      <div id="camposPrazoComercial" style="display:contents;">
+        <div><label>Prazo de fabricação</label><input id="fPrazoFab" placeholder="Ex: 30 dias" value="30 dias"></div>
+        <div><label>Prazo de instalação</label><input id="fPrazoInst" placeholder="Ex: 3 dias" value="3 dias"></div>
+      </div>
+      <div id="campoPrazoManutencao" style="display:none;">
+        <label>Prazo de execução dos serviços</label><input id="fPrazoExecucao" placeholder="Ex: 2 dias úteis" value="2 dias úteis">
+      </div>
+    </div>
+  </div>
+
+  <div class="actions-row">
+    <button class="btn-ghost" id="previewBtn">Pré-visualizar (texto)</button>
+    <button class="btn-ghost" id="previewDocxBtn">👁️ Pré-visualizar documento</button>
+    <button class="btn-primary" id="generateBtn">Gerar proposta (.docx)</button>
+  </div>
+  <div class="preview-box" id="previewBox" style="display:none;"></div>
+  <div class="log" id="log" style="display:none;"></div>
+</div>
+
+<div id="docxPreviewModal" style="display:none;position:fixed;inset:0;background:rgba(30,25,20,.65);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:10px;max-width:960px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);">
+      <strong style="flex:1;">Pré-visualização da proposta</strong>
+      <button class="btn-primary" id="baixarDoPreviewBtn">⬇ Baixar .docx</button>
+      <button class="btn-ghost" id="fecharPreviewBtn">✕ Fechar</button>
+    </div>
+    <div id="docxPreviewBody" style="overflow:auto;padding:24px;background:#e9e2d8;flex:1;"></div>
+  </div>
+</div>
+
+<script>
+// ---------- window.storage: implementação local (IndexedDB) ----------
+// O app foi originalmente criado como Artifact da Claude, onde "window.storage" é fornecido
+// pela plataforma (dados ficam na nuvem da Anthropic). Fora desse ambiente (ex: hospedado no
+// Netlify) essa API não existe — por isso implementamos aqui a mesma interface (set/get/delete/list)
+// usando IndexedDB do navegador. Os dados passam a ficar salvos NESTE navegador/dispositivo,
+// não sincronizados entre aparelhos diferentes. Ver README para uma futura evolução com backend.
+window.storage = (function(){
+  const DB_NAME = 'gerador_propostas_solar_minas';
+  const STORE_NAME = 'kv';
+  let dbPromise = null;
+
+  function openDb(){
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(STORE_NAME)){
+          req.result.createObjectStore(STORE_NAME);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  }
+  function reqToPromise(req){
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbPut(key, value){
+    const db = await openDb();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(value, key);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbDelete(key){
+    const db = await openDb();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(key);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbGet(key){
+    const db = await openDb();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    return reqToPromise(tx.objectStore(STORE_NAME).get(key));
+  }
+  async function idbKeys(){
+    const db = await openDb();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    return reqToPromise(tx.objectStore(STORE_NAME).getAllKeys());
+  }
+
+  return {
+    async set(key, value /*, shared */){ await idbPut(key, value); },
+    async get(key /*, shared */){
+      const value = await idbGet(key);
+      return value === undefined ? undefined : { value };
+    },
+    async delete(key /*, shared */){ await idbDelete(key); },
+    async list(prefix /*, shared */){
+      const allKeys = await idbKeys();
+      const keys = allKeys.filter(k => typeof k === 'string' && k.startsWith(prefix || ''));
+      return { keys };
+    },
+  };
+})();
+
+let catalogData = [];
+let selectedCodes = [];
+let templateArrayBufferComercial = null;
+let templateArrayBufferManutencao = null;
+let tipoProposta = 'comercial';
+
+function elementosPorTipo(){
+  return {
+    comercial: { templateInputId:'templateFile', statusId:'templateStatus', storageKey:'modelo' },
+    manutencao: { templateInputId:'templateFileManutencao', statusId:'templateStatusManutencao', storageKey:'modeloManutencao' },
+  };
+}
+function atualizarVisibilidadePorTipo(){
+  const ehComercial = tipoProposta === 'comercial';
+  document.getElementById('modeloComercialWrap').style.display = ehComercial ? 'block' : 'none';
+  document.getElementById('modeloManutencaoWrap').style.display = ehComercial ? 'none' : 'block';
+  document.getElementById('camposPrazoComercial').style.display = ehComercial ? 'contents' : 'none';
+  document.getElementById('campoPrazoManutencao').style.display = ehComercial ? 'none' : 'block';
+}
+document.querySelectorAll('input[name="tipoProposta"]').forEach(radio=>{
+  radio.addEventListener('change', (e)=>{
+    tipoProposta = e.target.value;
+    atualizarVisibilidadePorTipo();
+    agendarSalvamento();
+  });
+});
+atualizarVisibilidadePorTipo();
+let catalogDirty = false;
+window.__imageInputs = {};
+// Banco de imagens: biblioteca reaproveitável entre propostas, independente do catálogo — fica
+// salva neste navegador. bancoImagensIndice guarda só metadados (leve); o conteúdo de cada imagem
+// (base64) fica numa chave própria "banco_imagem:{slug}", hidratada sob demanda.
+let bancoImagensIndice = []; // [{slug, nomeArquivo}]
+window.__sugestoesBancoPendentes = {}; // codigo -> {slug, nomeArquivo, tipo}
+
+const log = (msg) => {
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  el.textContent += msg + "\n";
+  el.scrollTop = el.scrollHeight;
+};
+
+// ---------- Armazenamento persistente do app (window.storage) ----------
+// Guarda tudo como JSON (texto). Fica salvo neste navegador (IndexedDB, ver implementação de
+// window.storage no início deste arquivo) — não sincroniza entre aparelhos ou navegadores diferentes.
+async function storageSet(key, val){
+  try{
+    await window.storage.set(key, JSON.stringify(val), false);
+  }catch(err){
+    console.error('Falha ao salvar', key, err);
+    throw err;
+  }
+}
+async function storageGet(key){
+  try{
+    const r = await window.storage.get(key, false);
+    return r ? JSON.parse(r.value) : null;
+  }catch(err){
+    return null; // chave inexistente ainda é normal (primeira vez)
+  }
+}
+async function storageDelete(key){
+  try{ await window.storage.delete(key, false); }catch(err){ /* ignora */ }
+}
+async function storageListPrefix(prefix){
+  try{
+    const r = await window.storage.list(prefix, false);
+    return r ? r.keys : [];
+  }catch(err){ return []; }
+}
+
+// ---------- Conversão de arquivo <-> base64 (fotos e modelo .docx ficam guardados como texto) ----------
+function fileParaBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result); // já vem como data URL "data:...;base64,...."
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function base64ParaArrayBuffer(dataUrl){
+  const base64 = dataUrl.split(',')[1];
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+function base64ParaBlob(dataUrl){
+  const tipo = (/data:([^;]+);/.exec(dataUrl)||[])[1] || 'image/jpeg';
+  return new Blob([base64ParaArrayBuffer(dataUrl)], {type: tipo});
+}
+
+document.getElementById('catalogFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const sheet = wb.Sheets['Catalogo'] || wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+  // Chave de comparação tolerante a maiúscula/minúscula e espaço extra (a planilha pode vir de
+  // uma exportação/edição diferente da vez anterior) — evita perder a marcação de foto de um
+  // produto só porque o código veio "RTGP1500BP" numa vez e " rtgp1500bp " na outra.
+  const chaveComparacao = c => String(c||'').trim().toUpperCase();
+  const catalogAntigoPorCodigo = new Map(catalogData.map(p => [chaveComparacao(p.codigo), p]));
+  const tinhamFotoAntes = new Set(catalogData.filter(p => p.temFoto).map(p => chaveComparacao(p.codigo)));
+  const baterem = new Set();
+  catalogData = [];
+  for (let i=1;i<rows.length;i++){
+    const r = rows[i];
+    if (!r[0]) continue;
+    const codigo = String(r[0]).trim();
+    // Se o produto já existia (com foto salva), preserva a marcação de foto — a planilha não
+    // guarda foto, só nome/descrição/especificação. Reimportar não deve apagar fotos já anexadas.
+    const antigo = catalogAntigoPorCodigo.get(chaveComparacao(codigo));
+    if (antigo) baterem.add(chaveComparacao(codigo));
+    catalogData.push({codigo, nome:String(r[1]||''), desc:String(r[2]||''), espec:String(r[3]||''), temFoto: antigo ? !!antigo.temFoto : false});
+  }
+  catalogDirty = false;
+  document.getElementById('baixarCatalogoBtn').style.display = 'none';
+  document.getElementById('catalogStatus').textContent = `${catalogData.length} produto(s) carregado(s).`;
+  document.getElementById('catalogStatus').classList.add('ok');
+  const searchInput = document.getElementById('catalogSearch');
+  searchInput.value = '';
+  catalogSearchTerm = '';
+  searchInput.style.display = catalogData.length > 0 ? 'block' : 'none';
+  renderSearchResults();
+  renderIncludedList();
+  storageSet('catalogo_indice', catalogData).catch(err=>log('Aviso: não consegui salvar o índice do catálogo neste navegador (' + err.message + ').'));
+
+  // Avisa (não esconde) quando um código que tinha foto salva não apareceu nesta planilha —
+  // a foto continua guardada no navegador (não é apagada), só não tem mais em qual produto
+  // encaixar; melhor deixar isso visível do que a foto "sumir" silenciosamente.
+  const orfaos = [...tinhamFotoAntes].filter(c => !baterem.has(c));
+  if (orfaos.length > 0){
+    log(`Aviso: ${orfaos.length} código(s) que tinham foto salva não bateram com nenhuma linha desta planilha (${orfaos.join(', ')}). A foto continua guardada neste navegador — se o produto só mudou de código na planilha, anexe a foto de novo (busca → "📷 Anexar foto" ou editar produto).`);
+    document.getElementById('log').style.display = 'block';
+  }
+});
+
+// Cada foto vive na sua PRÓPRIA chave (foto:{codigo}) — nunca no mesmo blob do catálogo.
+// Guardar tudo junto numa chave só cresce sem limite (o storage tem teto de 5MB por chave) e
+// derruba o salvamento do catálogo inteiro assim que tem fotos demais. Separado, cada produto
+// tem seu próprio orçamento de espaço, independente dos outros.
+async function hidratarFotoDoProduto(codigo){
+  if (window.__imageInputs[codigo]) return; // já carregada nesta sessão
+  const item = catalogData.find(p => p.codigo === codigo);
+  if (!item || !item.temFoto) return;
+  const foto = await storageGet('foto:' + codigo);
+  if (foto && foto.base64){
+    window.__imageInputs[codigo] = base64ParaBlob(foto.base64);
+  }
+}
+async function hidratarFotosDosSelecionados(){
+  await Promise.all(selectedCodes.map(c => hidratarFotoDoProduto(c).catch(()=>{})));
+}
+
+let catalogSearchTerm = '';
+const SEARCH_RESULTS_LIMIT = 10;
+
+document.getElementById('catalogSearch').addEventListener('input', (e)=>{
+  catalogSearchTerm = e.target.value;
+  renderSearchResults();
+});
+
+function escapeHtmlLocal(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderSearchResults(){
+  const wrap = document.getElementById('searchResultsWrap');
+  const termo = catalogSearchTerm.trim().toLowerCase();
+  if (!termo){
+    wrap.innerHTML = catalogData.length > 0
+      ? '<div class="hint">Digite acima pra buscar produtos do catálogo e adicionar à proposta.</div>'
+      : '';
+    return;
+  }
+  const encontrados = catalogData
+    .map((p, idx) => ({p, idx}))
+    .filter(({p}) => p.nome.toLowerCase().includes(termo) || p.codigo.toLowerCase().includes(termo))
+    .slice(0, SEARCH_RESULTS_LIMIT);
+
+  if (encontrados.length === 0){
+    wrap.innerHTML = `<div class="hint">Nenhum produto encontrado para "${escapeHtmlLocal(catalogSearchTerm)}".</div>`;
+    return;
+  }
+
+  let html = '';
+  encontrados.forEach(({p, idx}) => {
+    const jaIncluido = selectedCodes.includes(p.codigo);
+    // Sem foto ainda: um botão pra anexar na hora, direto da busca — não precisa incluir o
+    // produto na proposta primeiro. Salva no catálogo (salvarFotoNoCatalogo), então fica
+    // disponível pra qualquer proposta futura, não só pra esta.
+    const anexarFoto = !p.temFoto
+      ? `<label class="btn-ghost anexarFotoBuscaBtn" data-idx="${idx}" title="Anexar foto a este produto agora — fica salva pra sempre no catálogo, mesmo sem incluir na proposta" style="cursor:pointer;">📷 Anexar foto<input type="file" accept="image/*" class="photoInputBusca" data-idx="${idx}" style="display:none;"></label>`
+      : '';
+    html += `<div class="search-result-row">
+      <div class="sr-info"><span class="sr-code">${p.codigo}</span> — ${escapeHtmlLocal(p.nome)}${p.temFoto ? ' 📷' : ''}</div>
+      <button class="btn-ghost editProdBtn" data-idx="${idx}" title="Editar nome/descrição/especificação">✏️</button>
+      ${anexarFoto}
+      <button class="btn-ghost addProdBtn" data-idx="${idx}" ${jaIncluido ? 'disabled' : ''}>${jaIncluido ? '✓ Incluído' : '+ Adicionar'}</button>
+    </div>`;
+  });
+  const totalNoCatalogo = catalogData.filter(p => p.nome.toLowerCase().includes(termo) || p.codigo.toLowerCase().includes(termo)).length;
+  if (totalNoCatalogo > SEARCH_RESULTS_LIMIT){
+    html += `<div class="hint">Mostrando ${SEARCH_RESULTS_LIMIT} de ${totalNoCatalogo} resultados — refine a busca pra ver outros.</div>`;
+  }
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.editProdBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>abrirFormularioProduto(catalogData[btn.dataset.idx].codigo));
+  });
+  wrap.querySelectorAll('.photoInputBusca').forEach(inp=>{
+    inp.addEventListener('change', async (ev)=>{
+      const idx = inp.dataset.idx;
+      const code = catalogData[idx].codigo;
+      const file = ev.target.files[0];
+      if (!file) return;
+      document.getElementById('log').style.display = 'block';
+      window.__imageInputs[code] = file;
+      await salvarFotoNoCatalogo(code, file);
+      renderSearchResults();
+      renderIncludedList();
+    });
+  });
+  wrap.querySelectorAll('.addProdBtn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const idx = btn.dataset.idx;
+      const code = catalogData[idx].codigo;
+      if (!selectedCodes.includes(code)) selectedCodes.push(code);
+      renderSearchResults();
+      renderIncludedList();
+      await hidratarFotoDoProduto(code);
+      await tentarPuxarFotoDoBancoAutomaticamente(code);
+      renderIncludedList();
+    });
+  });
+}
+
+function renderIncludedList(){
+  const wrap = document.getElementById('includedWrap');
+  if (selectedCodes.length === 0){
+    wrap.innerHTML = '<div class="hint">Nenhum produto incluído ainda — use a busca acima.</div>';
+    return;
+  }
+  let html = '';
+  selectedCodes.forEach((code, i) => {
+    const idx = catalogData.findIndex(p => p.codigo === code);
+    const p = idx !== -1 ? catalogData[idx] : null;
+    const carregadaNaSessao = !!window.__imageInputs[code];
+    const salvaNaNuvem = !!(p && p.temFoto);
+    const sugestaoBanco = window.__sugestoesBancoPendentes[code];
+    let statusFoto = '';
+    if (salvaNaNuvem){
+      statusFoto = ' <span style="color:#3a7a3a;">☁️ foto salva</span>';
+    } else if (carregadaNaSessao){
+      statusFoto = ' <span style="color:#b8860b;">⚠️ foto carregada, mas NÃO salvou neste navegador — <a href="#" class="retryFotoLink" data-code="'+code+'">tentar salvar de novo</a></span>';
+    } else if (sugestaoBanco){
+      statusFoto = ` <span style="color:#b8860b;">💡 achei "${escapeHtmlLocal(sugestaoBanco.nomeArquivo)}" no banco de imagens — <a href="#" class="usarSugestaoBancoLink" data-code="${code}">usar esta foto</a> · <a href="#" class="descartarSugestaoBancoLink" data-code="${code}">não é essa</a></span>`;
+    } else if (bancoImagensIndice.length > 0){
+      statusFoto = ' <span style="color:var(--sub);">sem foto no banco — anexe manualmente ao lado</span>';
+    }
+    html += `<div class="included-row">
+      <div class="move-btns">
+        <button class="btn-ghost moveUpBtn" data-code="${code}" ${i===0 ? 'disabled' : ''} title="Mover pra cima">▲</button>
+        <button class="btn-ghost moveDownBtn" data-code="${code}" ${i===selectedCodes.length-1 ? 'disabled' : ''} title="Mover pra baixo">▼</button>
+      </div>
+      <div class="inc-info"><span class="inc-code">${code}</span> — ${p ? escapeHtmlLocal(p.nome) : '[não encontrado no catálogo]'}${statusFoto}</div>
+      <button class="btn-ghost editIncBtn" data-code="${code}" title="Editar nome/descrição/especificação">✏️</button>
+      <input type="file" accept="image/*" class="photoInput" data-code="${code}" title="Foto do produto — fica salva neste navegador, não precisa reanexar depois">
+      <button class="btn-ghost removeIncBtn" data-code="${code}">✕</button>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.editIncBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>abrirFormularioProduto(btn.dataset.code));
+  });
+  wrap.querySelectorAll('.retryFotoLink').forEach(a=>{
+    a.addEventListener('click', async (ev)=>{
+      ev.preventDefault();
+      const code = a.dataset.code;
+      const file = window.__imageInputs[code];
+      if (!file) return;
+      log(`Tentando salvar a foto de ${code} de novo...`);
+      document.getElementById('log').style.display = 'block';
+      await salvarFotoNoCatalogo(code, file);
+    });
+  });
+  wrap.querySelectorAll('.usarSugestaoBancoLink').forEach(a=>{
+    a.addEventListener('click', async (ev)=>{
+      ev.preventDefault();
+      document.getElementById('log').style.display = 'block';
+      await confirmarSugestaoBancoParaProduto(a.dataset.code);
+    });
+  });
+  wrap.querySelectorAll('.descartarSugestaoBancoLink').forEach(a=>{
+    a.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      delete window.__sugestoesBancoPendentes[a.dataset.code];
+      renderIncludedList();
+    });
+  });
+  wrap.querySelectorAll('.moveUpBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>moverProdutoIncluido(btn.dataset.code, -1));
+  });
+  wrap.querySelectorAll('.moveDownBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>moverProdutoIncluido(btn.dataset.code, 1));
+  });
+  wrap.querySelectorAll('.photoInput').forEach(inp=>{
+    inp.addEventListener('change', async (ev)=>{
+      const code = inp.dataset.code;
+      const file = ev.target.files[0];
+      if (!file) return;
+      window.__imageInputs[code] = file;
+      await salvarFotoNoCatalogo(code, file);
+      renderIncludedList();
+      renderSearchResults();
+    });
+  });
+  wrap.querySelectorAll('.removeIncBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const code = btn.dataset.code;
+      selectedCodes = selectedCodes.filter(c => c !== code);
+      renderIncludedList();
+      renderSearchResults();
+    });
+  });
+}
+
+// Troca a posição de um produto incluído com o vizinho (direcao: -1 sobe, +1 desce) — a ordem
+// aqui é a mesma ordem em que os cards de produto vão sair na proposta.
+function moverProdutoIncluido(code, direcao){
+  const idx = selectedCodes.indexOf(code);
+  if (idx === -1) return;
+  const novoIdx = idx + direcao;
+  if (novoIdx < 0 || novoIdx >= selectedCodes.length) return;
+  [selectedCodes[idx], selectedCodes[novoIdx]] = [selectedCodes[novoIdx], selectedCodes[idx]];
+  renderIncludedList();
+}
+
+// Converte a foto pra base64 e grava numa chave própria (foto:{codigo}) — separada do
+// índice do catálogo, pra não estourar o limite de tamanho por chave conforme o catálogo cresce.
+// A foto é redimensionada ANTES de salvar — uma foto de celular direto (3-8MB) passa fácil do
+// limite de 5MB por chave quando vira base64; comprimida (~900px) fica bem abaixo disso.
+async function salvarFotoNoCatalogo(codigo, file){
+  const item = catalogData.find(p => p.codigo === codigo);
+  if (!item) return;
+  try{
+    const { blob } = await redimensionarImagem(file, 900, 0.85);
+    const base64 = await fileParaBase64(blob);
+    await storageSet('foto:' + codigo, {base64});
+    item.temFoto = true;
+    catalogDirty = true;
+    await storageSet('catalogo_indice', catalogData);
+    // A partir de agora, o que fica na memória (pra essa geração) é a versão já comprimida —
+    // assim o que você vê salvo é exatamente o que vai pro documento.
+    window.__imageInputs[codigo] = blob;
+    log(`Foto de "${item.nome || codigo}" salva neste navegador, associada a esse produto.`);
+    document.getElementById('log').style.display = 'block';
+    renderIncludedList();
+  }catch(err){
+    item.temFoto = false;
+    log(`Erro: não consegui salvar a foto de ${codigo} neste navegador (${err.message}). Ela NÃO vai aparecer se você fechar e reabrir — tente anexar de novo, ou avise se persistir.`);
+    document.getElementById('log').style.display = 'block';
+    renderIncludedList();
+  }
+}
+
+// ---------- Banco de imagens: matching por nome + auto-anexar ao incluir produto ----------
+// Tira a extensão e troca "_"/"-" por espaço, pra "modulo_solar-555w.jpg" virar "modulo solar
+// 555w" e casar direito com o nome do produto (normalizarTextoMatch, mais abaixo, não separa "_"
+// porque underscore conta como parte de palavra pra regex — trocamos aqui antes de comparar).
+function nomeAmigavelDoArquivo(nomeArquivo){
+  return String(nomeArquivo||'').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Procura, no banco de imagens já salvo, a melhor imagem pro nome de produto dado — mesma lógica
+// de "exato/parecido" usada pra sincronizar com a PCC (classificarMatchTexto), só que comparando
+// nome do arquivo com nome do produto em vez de material da PCC com nome do produto.
+function buscarImagemNoBancoParaProduto(nomeProduto){
+  let melhor = null;
+  bancoImagensIndice.forEach(item => {
+    const tipo = classificarMatchTexto(nomeAmigavelDoArquivo(item.nomeArquivo), nomeProduto);
+    if (!tipo) return;
+    if (!melhor || (tipo === 'exato' && melhor.tipo !== 'exato')) melhor = {...item, tipo};
+  });
+  return melhor;
+}
+
+async function hidratarImagemDoBanco(slug){
+  const registro = await storageGet('banco_imagem:' + slug);
+  return registro && registro.base64 ? base64ParaBlob(registro.base64) : null;
+}
+
+// Chamada assim que um produto é incluído numa proposta (busca, sincronização com a PCC ou
+// produto novo criado na hora): se já existir uma foto no banco que bate EXATO com o nome do
+// produto, anexa sozinho, sem perguntar nada. Se bater só "parecido", não arrisca anexar sozinho —
+// deixa uma sugestão pendente que aparece na lista de "Produtos incluídos" pra você confirmar.
+async function tentarPuxarFotoDoBancoAutomaticamente(codigo){
+  const item = catalogData.find(p => p.codigo === codigo);
+  if (!item || item.temFoto || bancoImagensIndice.length === 0) return;
+  const match = buscarImagemNoBancoParaProduto(item.nome);
+  if (!match) return;
+  if (match.tipo === 'exato'){
+    try{
+      const blob = await hidratarImagemDoBanco(match.slug);
+      if (!blob) return;
+      window.__imageInputs[codigo] = blob;
+      await salvarFotoNoCatalogo(codigo, blob);
+      log(`📸 Foto puxada automaticamente do banco de imagens para "${item.nome}" (arquivo "${match.nomeArquivo}").`);
+      document.getElementById('log').style.display = 'block';
+    }catch(err){
+      log(`Aviso: achei "${match.nomeArquivo}" no banco pra "${item.nome}", mas não consegui carregar (${err.message}).`);
+      document.getElementById('log').style.display = 'block';
+    }
+  } else {
+    window.__sugestoesBancoPendentes[codigo] = match;
+    renderIncludedList();
+  }
+}
+
+// O usuário confirma (ou descarta) uma sugestão "parecido" clicando na lista de incluídos.
+async function confirmarSugestaoBancoParaProduto(codigo){
+  const sugestao = window.__sugestoesBancoPendentes[codigo];
+  if (!sugestao) return;
+  delete window.__sugestoesBancoPendentes[codigo];
+  try{
+    const blob = await hidratarImagemDoBanco(sugestao.slug);
+    if (!blob){ log('Aviso: não consegui carregar essa imagem do banco.'); document.getElementById('log').style.display = 'block'; renderIncludedList(); return; }
+    window.__imageInputs[codigo] = blob;
+    await salvarFotoNoCatalogo(codigo, blob);
+  }catch(err){
+    log(`Aviso: não consegui usar a imagem sugerida (${err.message}).`);
+    document.getElementById('log').style.display = 'block';
+    renderIncludedList();
+  }
+}
+
+function atualizarStatusBancoImagens(){
+  const el = document.getElementById('bancoImagensStatus');
+  if (!el) return;
+  el.textContent = bancoImagensIndice.length
+    ? `${bancoImagensIndice.length} imagem(ns) no banco (salvas neste navegador, reaproveitadas em propostas futuras).`
+    : 'Nenhuma imagem no banco ainda — selecione uma pasta acima pra começar.';
+}
+
+// Catálogo e modelo são "config de trabalho" (reaproveitados entre propostas diferentes), por
+// isso restauram sozinhos ao abrir o artefato — sem precisar de nenhuma ação sua.
+async function restaurarConfiguracaoDeTrabalho(){
+  const bancoSalvo = await storageGet('banco_imagens_indice');
+  if (Array.isArray(bancoSalvo)) bancoImagensIndice = bancoSalvo;
+  atualizarStatusBancoImagens();
+
+  let indice = await storageGet('catalogo_indice');
+
+  if (!indice){
+    // Migração do formato antigo: uma chave só ("catalogo") com as fotos embutidas em cada
+    // item. Isso cresce sem limite e estoura o teto de 5MB por chave — por isso agora cada
+    // foto vira sua própria chave, e o catálogo guarda só o texto + uma marcação "tem foto".
+    try{
+      const antigo = await storageGet('catalogo');
+      if (Array.isArray(antigo) && antigo.length > 0){
+        log('Encontrei o catálogo no formato antigo — migrando as fotos pra chaves separadas (evita o erro de salvar dar "internal server error" com o catálogo grande)...');
+        indice = [];
+        for (const item of antigo){
+          const temFoto = !!item.fotoBase64;
+          if (temFoto){
+            try{ await storageSet('foto:' + item.codigo, {base64: item.fotoBase64}); }
+            catch(err){ log(`Aviso: não migrei a foto de ${item.codigo} (${err.message}). Vai precisar reanexar essa.`); }
+          }
+          indice.push({codigo:item.codigo, nome:item.nome, desc:item.desc, espec:item.espec, temFoto});
+        }
+        await storageSet('catalogo_indice', indice);
+        await storageDelete('catalogo');
+        log('Migração concluída.');
+        document.getElementById('log').style.display = 'block';
+      }
+    }catch(err){
+      log('Aviso: não consegui migrar o catálogo salvo (' + err.message + '). Reimporte o catálogo pra recomeçar limpo.');
+      document.getElementById('log').style.display = 'block';
+    }
+  }
+
+  if (Array.isArray(indice) && indice.length > 0){
+    catalogData = indice;
+    document.getElementById('catalogStatus').textContent = `${catalogData.length} produto(s) carregado(s) (restaurado automaticamente).`;
+    document.getElementById('catalogStatus').classList.add('ok');
+    document.getElementById('catalogSearch').style.display = 'block';
+    renderSearchResults();
+    renderIncludedList();
+  }
+
+  const modeloSalvo = await storageGet('modelo');
+  if (modeloSalvo && modeloSalvo.base64){
+    templateArrayBufferComercial = base64ParaArrayBuffer(modeloSalvo.base64);
+    document.getElementById('templateStatus').textContent = `Modelo carregado: ${modeloSalvo.nome} (restaurado automaticamente).`;
+    document.getElementById('templateStatus').classList.add('ok');
+  }
+  const modeloManutencaoSalvo = await storageGet('modeloManutencao');
+  if (modeloManutencaoSalvo && modeloManutencaoSalvo.base64){
+    templateArrayBufferManutencao = base64ParaArrayBuffer(modeloManutencaoSalvo.base64);
+    document.getElementById('templateStatusManutencao').textContent = `Modelo carregado: ${modeloManutencaoSalvo.nome} (restaurado automaticamente).`;
+    document.getElementById('templateStatusManutencao').classList.add('ok');
+  }
+}
+restaurarConfiguracaoDeTrabalho();
+
+// ---------- Novo produto / Editar produto (mesmo formulário, dois modos) ----------
+function proximoCodigoNovoProduto(){
+  let n = 1;
+  let codigo;
+  do {
+    codigo = 'NOVO-' + String(n).padStart(3, '0');
+    n++;
+  } while (catalogData.some(p => p.codigo === codigo));
+  return codigo;
+}
+let codigoEmEdicao = null; // null = criando produto novo; com valor = editando esse código existente
+
+function abrirFormularioProduto(codigoParaEditar){
+  const form = document.getElementById('novoProdutoForm');
+  const tituloForm = document.getElementById('npFormTitulo');
+  const campoCodigo = document.getElementById('npCodigo');
+  if (codigoParaEditar){
+    const item = catalogData.find(p => p.codigo === codigoParaEditar);
+    if (!item) return;
+    codigoEmEdicao = codigoParaEditar;
+    campoCodigo.value = item.codigo;
+    campoCodigo.readOnly = true;
+    document.getElementById('npNome').value = item.nome || '';
+    document.getElementById('npDesc').value = item.desc || '';
+    document.getElementById('npEspec').value = item.espec || '';
+    if (tituloForm) tituloForm.textContent = `Editando: ${item.codigo}`;
+  } else {
+    codigoEmEdicao = null;
+    campoCodigo.value = proximoCodigoNovoProduto();
+    campoCodigo.readOnly = false;
+    document.getElementById('npNome').value = '';
+    document.getElementById('npDesc').value = '';
+    document.getElementById('npEspec').value = '';
+    if (tituloForm) tituloForm.textContent = 'Novo produto';
+  }
+  document.getElementById('npFoto').value = '';
+  form.style.display = 'block';
+  form.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+document.getElementById('novoProdutoBtn').addEventListener('click', ()=>abrirFormularioProduto(null));
+document.getElementById('npCancelarBtn').addEventListener('click', ()=>{
+  document.getElementById('novoProdutoForm').style.display = 'none';
+  document.getElementById('npCodigo').readOnly = false;
+  codigoEmEdicao = null;
+});
+document.getElementById('npSalvarBtn').addEventListener('click', async ()=>{
+  const codigo = document.getElementById('npCodigo').value.trim();
+  const nome = document.getElementById('npNome').value.trim();
+  const desc = document.getElementById('npDesc').value.trim();
+  const espec = document.getElementById('npEspec').value.trim();
+  const fotoFile = document.getElementById('npFoto').files[0] || null;
+  if (!codigo || !nome){
+    alert('Preencha ao menos o código e o nome do produto.');
+    return;
+  }
+
+  if (codigoEmEdicao){
+    // Edição: atualiza o item existente no lugar (código não muda).
+    const item = catalogData.find(p => p.codigo === codigoEmEdicao);
+    if (!item){ alert('Não achei esse produto no catálogo pra editar.'); return; }
+    item.nome = nome; item.desc = desc; item.espec = espec;
+    catalogDirty = true;
+    try{
+      await storageSet('catalogo_indice', catalogData);
+      log(`Produto "${codigo}" atualizado.`);
+    }catch(err){
+      log(`Aviso: não consegui salvar a edição de ${codigo} neste navegador (${err.message}).`);
+    }
+    if (fotoFile){
+      window.__imageInputs[codigo] = fotoFile;
+      await salvarFotoNoCatalogo(codigo, fotoFile);
+    } else if (!item.temFoto){
+      await tentarPuxarFotoDoBancoAutomaticamente(codigo);
+    }
+  } else {
+    // Criação de produto novo.
+    if (catalogData.some(p => p.codigo === codigo)){
+      alert(`Já existe um produto com o código "${codigo}" no catálogo. Escolha outro código.`);
+      return;
+    }
+    const novoItem = {codigo, nome, desc, espec, temFoto:false};
+    catalogData.push(novoItem);
+    if (!selectedCodes.includes(codigo)) selectedCodes.push(codigo);
+    if (fotoFile){
+      window.__imageInputs[codigo] = fotoFile;
+      await salvarFotoNoCatalogo(codigo, fotoFile); // já marca temFoto=true e salva o índice
+    } else {
+      catalogDirty = true;
+      document.getElementById('baixarCatalogoBtn').style.display = 'inline-block';
+      storageSet('catalogo_indice', catalogData).catch(err=>log('Aviso: não consegui salvar o catálogo neste navegador (' + err.message + ').'));
+      await tentarPuxarFotoDoBancoAutomaticamente(codigo);
+    }
+    log(`Produto novo "${nome}" (${codigo}) criado e incluído nesta proposta.`);
+  }
+
+  document.getElementById('novoProdutoForm').style.display = 'none';
+  document.getElementById('npCodigo').readOnly = false;
+  codigoEmEdicao = null;
+  document.getElementById('baixarCatalogoBtn').style.display = 'inline-block';
+  document.getElementById('log').style.display = 'block';
+  renderSearchResults();
+  renderIncludedList();
+});
+
+// ---------- Baixar catálogo atualizado (.xlsx) ----------
+// A foto não entra na planilha (fica só salva neste navegador, associada ao produto) — o xlsx é só o texto,
+// útil como backup/arquivo mestre editável fora do app.
+document.getElementById('baixarCatalogoBtn').addEventListener('click', ()=>{
+  const aoa = [['Código','Nome','Descrição','Especificações Técnicas']];
+  catalogData.forEach(p => aoa.push([p.codigo, p.nome, p.desc, p.espec]));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Catalogo');
+  XLSX.writeFile(wb, 'Catalogo_Produtos_Solar_Minas_atualizado.xlsx');
+  log('Catálogo atualizado baixado (texto). As fotos já estão salvas neste navegador, não precisa de nada extra.');
+});
+
+document.getElementById('templateFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  templateArrayBufferComercial = await file.arrayBuffer();
+  document.getElementById('templateStatus').textContent = `Modelo carregado: ${file.name}`;
+  document.getElementById('templateStatus').classList.add('ok');
+  try{
+    const base64 = await fileParaBase64(file);
+    await storageSet('modelo', {base64, nome: file.name});
+  }catch(err){
+    log('Aviso: não consegui salvar o modelo neste navegador (' + err.message + '). Vai precisar reimportar na próxima vez.');
+  }
+});
+
+document.getElementById('templateFileManutencao').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  templateArrayBufferManutencao = await file.arrayBuffer();
+  document.getElementById('templateStatusManutencao').textContent = `Modelo carregado: ${file.name}`;
+  document.getElementById('templateStatusManutencao').classList.add('ok');
+  try{
+    const base64 = await fileParaBase64(file);
+    await storageSet('modeloManutencao', {base64, nome: file.name});
+  }catch(err){
+    log('Aviso: não consegui salvar o modelo neste navegador (' + err.message + '). Vai precisar reimportar na próxima vez.');
+  }
+});
+
+function addPccRow(data){
+  data = data || {material:'', qtd:'', un:'un.', vunit:'', vtotal:'', bloco:''};
+  const tr = document.createElement('tr');
+  tr.dataset.bloco = data.bloco || '';
+  tr.innerHTML = `
+    <td><input class="pMat" value="${data.material}"></td>
+    <td><input class="pQtd" value="${data.qtd}"></td>
+    <td><input class="pUn" value="${data.un}"></td>
+    <td><input class="pVU" value="${data.vunit}"></td>
+    <td><input class="pVT" value="${data.vtotal}" readonly></td>
+    <td><button class="btn-ghost delRow">✕</button></td>`;
+  document.getElementById('pccBody').appendChild(tr);
+  const qtd = tr.querySelector('.pQtd'), vu = tr.querySelector('.pVU'), vt = tr.querySelector('.pVT');
+  const recalc = ()=>{
+    const q = parseBRNumber(qtd.value);
+    const u = parseBRNumber(vu.value);
+    vt.value = formatBRL(q*u);
+    updateTotal();
+  };
+  qtd.addEventListener('input', recalc);
+  vu.addEventListener('input', recalc);
+  tr.querySelector('.delRow').addEventListener('click', ()=>{ tr.remove(); updateTotal(); });
+}
+function addPccDividerRow(nome, ehPrincipal){
+  const tr = document.createElement('tr');
+  tr.className = 'pcc-divider';
+  tr.dataset.blocoNome = nome;
+  tr.innerHTML = `<td colspan="6">📦 <input type="text" class="divider-nome-input" value="${escapeHtmlLocal(nome)}" placeholder="Nome do bloco">${ehPrincipal ? ' <span class="hint" style="font-weight:normal;">(principal)</span>' : ''}</td>`;
+  document.getElementById('pccBody').appendChild(tr);
+  const input = tr.querySelector('.divider-nome-input');
+  input.addEventListener('change', ()=>{
+    const nomeAntigo = tr.dataset.blocoNome;
+    const novoNome = input.value.trim();
+    tr.dataset.blocoNome = novoNome;
+    // atualiza o bloco de cada linha de item logo abaixo desse divisor, até o próximo divisor
+    let el = tr.nextElementSibling;
+    while (el && !el.classList.contains('pcc-divider')){
+      if (el.dataset.bloco === nomeAntigo) el.dataset.bloco = novoNome;
+      el = el.nextElementSibling;
+    }
+    log(`Bloco renomeado: "${nomeAntigo}" → "${novoNome}".`);
+    document.getElementById('log').style.display = 'block';
+  });
+}
+function updateTotal(){
+  let total=0;
+  document.querySelectorAll('.pVT').forEach(el=>{ total += parseBRNumber(el.value); });
+  document.getElementById('pccTotal').textContent = formatBRL(total);
+  const extensoEl = document.getElementById('pccExtenso');
+  if (extensoEl) extensoEl.textContent = total > 0 ? ('Por extenso: ' + valorPorExtenso(total)) : '';
+  atualizarComparativoRevisao();
+}
+
+// ---------- Revisão — comparação "antes -> depois" ao editar uma proposta já enviada ----------
+// revisaoBaseline guarda o número e o total no momento em que "Nova revisão" foi clicado,
+// pra você acompanhar o quanto o valor mudou enquanto ajusta a PCC depois de uma revisão.
+let revisaoBaseline = null;
+
+function proximaRevisao(atual){
+  const m = /(\d+)\s*$/.exec((atual||'').trim());
+  if (!m) return (atual||'REV.').trim() + ' 01';
+  const novoNum = String(parseInt(m[1],10)+1).padStart(m[1].length, '0');
+  return atual.slice(0, m.index) + novoNum;
+}
+
+function totalAtualPcc(){
+  return coletarPcc().reduce((acc,l)=>acc+parseBRNumber(l.vtotal), 0);
+}
+
+function atualizarComparativoRevisao(){
+  const el = document.getElementById('revisaoCompare');
+  if (!el) return;
+  if (!revisaoBaseline){ el.textContent = ''; return; }
+  const totalAtual = totalAtualPcc();
+  const diff = totalAtual - revisaoBaseline.total;
+  const sinal = diff > 0 ? '+' : (diff < 0 ? '−' : '');
+  const revisaoAtualTxt = document.getElementById('fRevisao').value || '(atual)';
+  el.textContent = `${revisaoBaseline.revisao}: R$ ${formatBRL(revisaoBaseline.total)}  →  ${revisaoAtualTxt}: R$ ${formatBRL(totalAtual)}  (${sinal}R$ ${formatBRL(Math.abs(diff))})`;
+}
+
+document.getElementById('novaRevisaoBtn').addEventListener('click', ()=>{
+  const fRevisao = document.getElementById('fRevisao');
+  revisaoBaseline = { revisao: fRevisao.value || 'REV. 00', total: totalAtualPcc() };
+  fRevisao.value = proximaRevisao(fRevisao.value || 'REV. 00');
+  atualizarComparativoRevisao();
+  log(`Nova revisão iniciada: ${revisaoBaseline.revisao} → ${fRevisao.value}. Valor de referência: R$ ${formatBRL(revisaoBaseline.total)}. Edite a PCC à vontade — o comparativo acima acompanha a diferença.`);
+  document.getElementById('log').style.display = 'block';
+});
+document.getElementById('fRevisao').addEventListener('input', atualizarComparativoRevisao);
+document.getElementById('addRow').addEventListener('click', ()=>addPccRow());
+
+// ---------- Importar PCC (.xlsx) — até 3 blocos (Principal + 2 extras) ----------
+document.getElementById('pccFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('pccStatus');
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    // Prioridade: aba "Proposta Comercial" (nome real da PCC, tem as colunas de venda já com markup)
+    // > "Resumo" (aba antiga, que costuma quebrar com #REF! quando se insere linha na PCC)
+    // > primeira aba, como último recurso.
+    const nomeAba = wb.SheetNames.find(n => n.trim().toLowerCase().includes('comercial'))
+      || wb.SheetNames.find(n => n.trim().toLowerCase() === 'resumo')
+      || wb.SheetNames[0];
+    const ws = wb.Sheets[nomeAba];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+    // Cada bloco começa numa linha de título que tem "Indice" em alguma célula
+    // (célula ao lado guarda o valor do índice, célula à esquerda guarda o nome do bloco).
+    const idxTitulos = [];
+    rows.forEach((r, ri) => {
+      if (r.some(c => String(c||'').trim().toLowerCase() === 'indice')) idxTitulos.push(ri);
+    });
+
+    if (idxTitulos.length === 0){
+      statusEl.textContent = `Não encontrei nenhum bloco (marcador "Índice") na aba "${nomeAba}". Verifique se é o arquivo certo.`;
+      statusEl.classList.remove('ok');
+      return;
+    }
+
+    const blocosEncontrados = [];
+    idxTitulos.forEach((tituloIdx, bi) => {
+      const headerIdx = tituloIdx + 1;
+      const headerRow = rows[headerIdx] || [];
+      if (!headerRow.some(h => String(h||'').toLowerCase().includes('material'))) return; // formato inesperado, pula
+
+      // Colunas identificadas pelo texto do cabeçalho — não pela posição fixa (a PCC já mudou de
+      // layout mais de uma vez: às vezes tem coluna "Código" antes de "Material", às vezes não).
+      let idxMaterial = -1, idxQtd = -1, idxUn = -1, idxVUnit = -1, idxVTotal = -1;
+      headerRow.forEach((h, ci) => {
+        const t = String(h||'').toLowerCase();
+        if (t.includes('material') && idxMaterial === -1) idxMaterial = ci;
+        if (t.includes('qtd') && idxQtd === -1) idxQtd = ci;
+        if ((t === 'un.' || t.includes('un.')) && idxUn === -1) idxUn = ci;
+        if (t.includes('valor unit')) idxVUnit = ci;   // sobrescreve — fica com a última ocorrência
+        if (t.includes('valor total')) idxVTotal = ci; // (colunas finais, já com markup do cliente)
+      });
+      if (idxMaterial === -1) return;
+      if (idxQtd === -1) idxQtd = idxMaterial+1;
+      if (idxUn === -1) idxUn = idxMaterial+2;
+      if (idxVUnit === -1) idxVUnit = idxMaterial+3;
+      if (idxVTotal === -1) idxVTotal = idxMaterial+4;
+
+      // Nome do bloco: célula na mesma coluna do "Material", na linha do título (ao lado do "Índice").
+      let nomeBloco = String((rows[tituloIdx]||[])[idxMaterial] || '').trim();
+      const eraPlaceholder = !nomeBloco || /edite este nome/i.test(nomeBloco);
+      if (eraPlaceholder) nomeBloco = `Bloco ${bi+1}`;
+
+      // Limite da varredura: até a próxima linha de título, ou até o fim da planilha.
+      const limiteVarredura = idxTitulos[bi+1] !== undefined ? idxTitulos[bi+1] : rows.length;
+
+      const linhas = [];
+      for (let i = headerIdx+1; i < limiteVarredura; i++){
+        const r = rows[i];
+        const materialRaw = String(r[idxMaterial]||'').trim();
+        const materialLower = materialRaw.toLowerCase();
+        if (materialLower.includes('total')) break; // linha "Valor total do sistema" = fim deste bloco
+
+        // Linha vazia ou com #REF! (sobra de inserir/excluir linha na planilha) — pula, não para.
+        if (!materialRaw || materialLower.includes('#ref')) continue;
+
+        linhas.push({
+          material: materialRaw,
+          qtd: String(r[idxQtd]!==undefined && r[idxQtd]!=='' ? r[idxQtd] : ''),
+          un: String(r[idxUn]||''),
+          vunit: typeof r[idxVUnit]==='number' ? formatBRL(r[idxVUnit]) : String(r[idxVUnit]||''),
+          vtotal: typeof r[idxVTotal]==='number' ? formatBRL(r[idxVTotal]) : String(r[idxVTotal]||''),
+        });
+      }
+
+      if (linhas.length > 0){
+        blocosEncontrados.push({nome: nomeBloco, linhas});
+      }
+      // bloco sem nenhuma linha preenchida = ignorado, não entra na proposta
+    });
+
+    if (blocosEncontrados.length === 0){
+      statusEl.textContent = `Nenhum item encontrado em nenhum bloco da aba "${nomeAba}".`;
+      statusEl.classList.remove('ok');
+      return;
+    }
+
+    document.getElementById('pccBody').innerHTML = '';
+    let totalItens = 0;
+    blocosEncontrados.forEach((bloco, bi) => {
+      if (blocosEncontrados.length > 1){
+        addPccDividerRow(bloco.nome, bi === 0);
+      }
+      bloco.linhas.forEach(l => addPccRow({...l, bloco: bloco.nome}));
+      totalItens += bloco.linhas.length;
+    });
+    updateTotal();
+
+    const resumoBlocos = blocosEncontrados.length > 1
+      ? ` em ${blocosEncontrados.length} blocos (${blocosEncontrados.map(b=>b.nome).join(', ')})`
+      : '';
+    statusEl.textContent = `${totalItens} item(ns) importado(s) da aba "${nomeAba}"${resumoBlocos}.`;
+    statusEl.classList.add('ok');
+  }catch(err){
+    statusEl.textContent = 'Erro ao ler o arquivo: ' + err.message;
+    statusEl.classList.remove('ok');
+  }
+});
+document.getElementById('pasteBtn').addEventListener('click', async ()=>{
+  const text = prompt('Cole aqui as linhas copiadas do Excel (Material, Qtd, Un, Vlr Unit — separado por TAB):');
+  if (!text) return;
+  text.split('\n').forEach(line=>{
+    const parts = line.split('\t');
+    if (parts.length>=3){
+      addPccRow({material:parts[0]||'', qtd:parts[1]||'', un:parts[2]||'un.', vunit:parts[3]||'', vtotal:''});
+      const rows = document.querySelectorAll('#pccBody tr');
+      rows[rows.length-1].querySelector('.pQtd').dispatchEvent(new Event('input'));
+    }
+  });
+});
+addPccRow();
+
+// ---------- 4.2 Não Contemplado Nesta Proposta ----------
+function escapeXml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// Converte número no formato brasileiro (ponto de milhar, vírgula decimal) para float.
+function parseBRNumber(str){
+  if (!str) return 0;
+  const clean = String(str).trim().replace(/\./g,'').replace(',','.');
+  const n = parseFloat(clean);
+  return isNaN(n) ? 0 : n;
+}
+function bulletLines(text){
+  return String(text).split(/\n/).map(l=>l.trim()).filter(l=>l.length>0);
+}
+function replaceNthPlaceholder(xml, token, n, lines){
+  const re = /(<w:t[^>]*>)([^<]*?)(<\/w:t>)/g;
+  let count = -1, match, result = '', lastIndex = 0, done=false;
+  while((match = re.exec(xml)) !== null){
+    if (!done && match[2].indexOf(token) !== -1){
+      count++;
+      if (count === n){
+        result += xml.slice(lastIndex, match.index);
+        const attrOpen = match[1].includes('xml:space') ? match[1] : match[1].replace('<w:t','<w:t xml:space="preserve"');
+        const fullText = match[2];
+        const tokIdx = fullText.indexOf(token);
+        const before = fullText.slice(0, tokIdx);
+        const after = fullText.slice(tokIdx + token.length);
+        let inner = '';
+        if (lines.length === 0){
+          inner = `${attrOpen}${escapeXml(before+after)}</w:t>`;
+        } else if (lines.length === 1){
+          inner = `${attrOpen}${escapeXml(before+lines[0]+after)}</w:t>`;
+        } else {
+          lines.forEach((ln, i)=>{
+            let text = ln;
+            if (i === 0) text = before + text;
+            if (i === lines.length-1) text = text + after;
+            inner += `${attrOpen}${escapeXml(text)}</w:t>`;
+            if (i < lines.length-1) inner += '<w:br/>';
+          });
+        }
+        result += inner;
+        lastIndex = match.index + match[0].length;
+        done = true;
+      }
+    }
+  }
+  result += xml.slice(lastIndex);
+  return result;
+}
+
+function pxToEmu(px){ return Math.round(px * 9525); }
+
+// ---------- Número por extenso (Reais) ----------
+function tresDigitosExt(n){
+  const unidades = ['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove'];
+  const dezA19 = ['dez','onze','doze','treze','catorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+  const dezenasExt = ['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+  const centenasExt = ['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+  if (n === 0) return '';
+  if (n === 100) return 'cem';
+  let c = Math.floor(n/100), r = n%100, partes=[];
+  if (c>0) partes.push(centenasExt[c]);
+  if (r>0){
+    if (r<10) partes.push(unidades[r]);
+    else if (r<20) partes.push(dezA19[r-10]);
+    else { let d=Math.floor(r/10), u=r%10; partes.push(dezenasExt[d]+(u>0?' e '+unidades[u]:'')); }
+  }
+  return partes.join(' e ');
+}
+function grupoExt(n, singular, plural){
+  if (n === 0) return '';
+  if (n === 1) return 'um ' + singular;
+  return tresDigitosExt(n) + ' ' + plural;
+}
+function juntarGruposExt(grupos){
+  const ativos = grupos.filter(g=>g.valor>0);
+  if (ativos.length === 0) return '';
+  let out = ativos[0].texto;
+  for (let i=1;i<ativos.length;i++){ out += (ativos[i].valor < 100 ? ' e ' : ', ') + ativos[i].texto; }
+  return out;
+}
+function valorPorExtenso(valor){
+  if (!valor || valor === 0) return 'zero reais';
+  const inteiroFloat = Math.round(valor*100)/100;
+  const totalInt = Math.floor(inteiroFloat);
+  const centavos = Math.round((inteiroFloat - totalInt)*100);
+  let n = totalInt;
+  const milhoes = Math.floor(n/1000000); n %= 1000000;
+  const milhares = Math.floor(n/1000); n %= 1000;
+  const centenasFinal = n;
+  const grupos = [
+    {valor: milhoes, texto: grupoExt(milhoes,'milhão','milhões')},
+    {valor: milhares, texto: milhares===1?'mil':(milhares>0?tresDigitosExt(milhares)+' mil':'')},
+    {valor: centenasFinal, texto: tresDigitosExt(centenasFinal)},
+  ];
+  const textoInteiro = juntarGruposExt(grupos);
+  const reaisTxt = textoInteiro + ' ' + (totalInt === 1 ? 'real' : 'reais');
+  if (centavos > 0){
+    return reaisTxt + ' e ' + tresDigitosExt(centavos) + ' ' + (centavos===1?'centavo':'centavos');
+  }
+  return reaisTxt;
+}
+
+// ---------- Tabela de valores (PCC) ----------
+function coletarPcc(){
+  const linhas = [];
+  document.querySelectorAll('#pccBody tr').forEach(tr=>{
+    if (tr.classList.contains('pcc-divider')) return;
+    const mat = tr.querySelector('.pMat').value.trim();
+    if (!mat) return;
+    linhas.push({
+      material: mat,
+      qtd: tr.querySelector('.pQtd').value.trim(),
+      un: tr.querySelector('.pUn').value.trim(),
+      vunit: tr.querySelector('.pVU').value.trim(),
+      vtotal: tr.querySelector('.pVT').value.trim(),
+      bloco: tr.dataset.bloco || '',
+    });
+  });
+  return linhas;
+}
+// Agrupa as linhas coletadas em blocos, na ordem em que cada bloco apareceu pela primeira vez.
+// Linhas sem bloco (digitadas manualmente, ou PCC de bloco único) caem todas no mesmo grupo "principal".
+function agruparBlocosPcc(linhas){
+  const blocos = [];
+  const indexPorChave = new Map();
+  linhas.forEach(l=>{
+    const chave = l.bloco || '';
+    if (!indexPorChave.has(chave)){
+      indexPorChave.set(chave, blocos.length);
+      blocos.push({nome: chave, linhas: []});
+    }
+    blocos[indexPorChave.get(chave)].linhas.push(l);
+  });
+  return blocos;
+}
+function formatBRL(n){
+  return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+// ---------- Tabela de valores (PCC) do modelo de MANUTENÇÃO — suporta até 3 blocos ----------
+// Extrai, uma única vez, as peças da tabela "Itens Inclusos" do modelo: preâmbulo (tblPr/tblGrid),
+// linha de cabeçalho, linha-molde do item, linha-molde do total e linha da nota — pra poder
+// clonar tabelas extras (blocos 2 e 3) com a mesma aparência, sem precisar de nada pronto no .docx.
+// O modelo COMERCIAL usa outra lógica agora (preencherValoresComercialNovo, mais abaixo) — o
+// modelo novo já vem com os blocos prontos no próprio .docx, em vez de depender de tokens só de texto.
+const TOKENS_PCC_MANUTENCAO = { material:'[MATERIAL / SERVIÇO]', qtd:'[QTD.]', un:'[UM.]', vunit:'[VLR. UNIT.]', vtotal:'[VLR. TOTAL]', valorTotal:'[VALOR TOTAL]' };
+
+function extrairMoldeTabelaValores(xml, tokens){
+  const idxPlaceholder = xml.indexOf(tokens.material);
+  if (idxPlaceholder === -1) return null;
+  let tblStart = xml.lastIndexOf('<w:tbl>', idxPlaceholder);
+  if (tblStart === -1) tblStart = xml.lastIndexOf('<w:tbl ', idxPlaceholder);
+  if (tblStart === -1) return null;
+  const tblEnd = xml.indexOf('</w:tbl>', idxPlaceholder) + '</w:tbl>'.length;
+  const tblXml = xml.slice(tblStart, tblEnd);
+
+  const trRe = /<w:tr\b[\s\S]*?<\/w:tr>/g;
+  const linhas = [];
+  let m;
+  while ((m = trRe.exec(tblXml)) !== null){ linhas.push(m[0]); }
+  if (linhas.length < 3) return null;
+
+  const headerRow = linhas[0];
+  const itemRowMolde = linhas.find(l => l.indexOf(tokens.material) !== -1);
+  const totalRowMolde = linhas.find(l => l.indexOf(tokens.valorTotal) !== -1);
+  const notaRow = linhas.find(l => l.indexOf('Nota (opcional)') !== -1) || '';
+  if (!itemRowMolde || !totalRowMolde) return null;
+
+  const preambulo = tblXml.slice(0, tblXml.indexOf(headerRow));
+
+  return { tblStart, tblEnd, preambulo, headerRow, itemRowMolde, totalRowMolde, notaRow };
+}
+
+function preencherLinhaItemPcc(tpl, material, qtd, un, vunit, vtotal, tokens){
+  const toks = [tokens.material, tokens.qtd, tokens.un, tokens.vunit, tokens.vtotal];
+  const valores = [material, qtd, un, vunit, vtotal];
+  let out = tpl;
+  toks.forEach((tok, i)=>{ out = out.replace(tok, escapeXml(valores[i])); });
+  return out;
+}
+
+// Monta o título (rústico, negrito, cor da marca) + a tabela clonada de um bloco extra (2º/3º).
+function montarBlocoExtraPcc(molde, nomeBloco, linhas, tokens){
+  let subtotal = 0;
+  const itensXml = linhas.map(l=>{
+    subtotal += parseBRNumber(l.vtotal);
+    return preencherLinhaItemPcc(molde.itemRowMolde, l.material, l.qtd, l.un, 'R$ '+l.vunit, 'R$ '+l.vtotal, tokens);
+  }).join('');
+  const totalXml = molde.totalRowMolde.replace(tokens.valorTotal, escapeXml(formatBRL(subtotal)));
+  const tabela = molde.preambulo + molde.headerRow + itensXml + totalXml + '</w:tbl>';
+  const titulo = `<w:p><w:pPr><w:spacing w:before="200" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:bCs/><w:color w:val="9C3B0F"/></w:rPr><w:t xml:space="preserve">${escapeXml(nomeBloco)}</w:t></w:r></w:p>`;
+  return { xml: titulo + tabela, subtotal };
+}
+
+// Preenche a tabela principal (1º bloco, já existente no modelo) e anexa, logo depois dela,
+// um título + tabela nova pra cada bloco extra preenchido (2º, 3º...). Retorna o xml já com
+// [VALOR TOTAL] e [VALOR POR EXTENSO] da seção de valores preenchidos com o TOTAL GERAL (soma dos blocos).
+function preencherBlocosPcc(xml, blocos, tokens){
+  tokens = tokens || TOKENS_PCC_MANUTENCAO;
+  if (!blocos || blocos.length === 0) return xml;
+
+  const molde = extrairMoldeTabelaValores(xml, tokens);
+  if (!molde){ log(`Aviso: não encontrei a tabela de valores (${tokens.material}) no template.`); return xml; }
+
+  const principal = blocos[0];
+  let subtotalPrincipal = 0;
+  const itensPrincipal = principal.linhas.map(l=>{
+    subtotalPrincipal += parseBRNumber(l.vtotal);
+    return preencherLinhaItemPcc(molde.itemRowMolde, l.material, l.qtd, l.un, 'R$ '+l.vunit, 'R$ '+l.vtotal, tokens);
+  }).join('');
+  const totalPrincipalXml = molde.totalRowMolde.replace(tokens.valorTotal, escapeXml(formatBRL(subtotalPrincipal)));
+  const tabelaPrincipal = molde.preambulo + molde.headerRow + itensPrincipal + totalPrincipalXml + molde.notaRow + '</w:tbl>';
+
+  let extrasXml = '';
+  let totalGeral = subtotalPrincipal;
+  for (let i=1; i<blocos.length; i++){
+    const {xml: blocoXml, subtotal} = montarBlocoExtraPcc(molde, blocos[i].nome, blocos[i].linhas, tokens);
+    extrasXml += blocoXml;
+    totalGeral += subtotal;
+  }
+  if (blocos.length > 1){
+    log(`PCC dividida em ${blocos.length} blocos no Word: ${blocos.map(b=>b.nome||'(principal)').join(', ')}. Total geral: R$ ${formatBRL(totalGeral)}.`);
+  }
+
+  xml = xml.slice(0, molde.tblStart) + tabelaPrincipal + extrasXml + xml.slice(molde.tblEnd);
+
+  // Depois de montar as tabelas, só sobra 1x cada token — na seção de valores — que
+  // recebe o TOTAL GERAL (soma de todos os blocos), não o subtotal de um bloco isolado.
+  xml = xml.split(tokens.valorTotal).join(formatBRL(totalGeral));
+  xml = xml.split('[VALOR POR EXTENSO]').join(valorPorExtenso(totalGeral));
+  return xml;
+}
+
+// ---------- Tabela de valores do modelo COMERCIAL NOVO ----------
+// Esse modelo já vem com os blocos prontos no próprio .docx (o principal, sem título, e "Bloco 2",
+// com título) mais uma tabela de resumo "2.2 Valores" com uma linha por bloco + total geral +
+// extenso — em vez de depender só de tokens de texto pra cada coluna, como no modelo antigo.
+// Quantidade e unidade da linha de item nem têm mais um token próprio (a célula já vem com um
+// texto de exemplo, tipo "1"/"un.") — por isso essas duas colunas são preenchidas pela POSIÇÃO da
+// célula na linha (substituirTextoDaEnesimaCelula), não por busca de texto.
+const TOKEN_MATERIAL_COMERCIAL_NOVO = '[Descrição do material]';
+
+// Substitui o texto da N-ésima célula (<w:tc>) de uma linha, preservando toda a formatação da
+// célula — usada pra colunas que não têm mais um token próprio pra procurar (qtd, unidade, total
+// do bloco), só a posição fixa na linha.
+function substituirTextoDaEnesimaCelula(rowXml, n, novoTexto){
+  const cellRe = /<w:tc\b[\s\S]*?<\/w:tc>/g;
+  let match, count = -1, target = null;
+  while((match = cellRe.exec(rowXml)) !== null){
+    count++;
+    if (count === n){ target = match; break; }
+  }
+  if (!target) return rowXml;
+  const cellXml = target[0];
+  let trocou = false;
+  const novaCellXml = cellXml.replace(/(<w:t[^>]*>)([^<]*)(<\/w:t>)/, (m, open, _txt, close) => {
+    trocou = true;
+    const openAttr = open.includes('xml:space') ? open : open.replace('<w:t','<w:t xml:space="preserve"');
+    return `${openAttr}${escapeXml(novoTexto)}${close}`;
+  });
+  if (!trocou) return rowXml;
+  return rowXml.slice(0, target.index) + novaCellXml + rowXml.slice(target.index + cellXml.length);
+}
+
+function preencherLinhaItemPccPosicional(moldeRow, l){
+  let out = moldeRow;
+  out = substituirTextoDaEnesimaCelula(out, 0, l.material);
+  out = substituirTextoDaEnesimaCelula(out, 1, l.qtd);
+  out = substituirTextoDaEnesimaCelula(out, 2, l.un);
+  out = substituirTextoDaEnesimaCelula(out, 3, 'R$ ' + l.vunit);
+  out = substituirTextoDaEnesimaCelula(out, 4, 'R$ ' + l.vtotal);
+  return out;
+}
+
+// Localiza as duas peças fixas do modelo comercial novo: a tabela do bloco principal (sempre
+// existe) e a do "Bloco 2" (só existe se o modelo tiver — usada como molde pra blocos extras,
+// se a PCC tiver mais de 2), mais as 4 linhas da tabela de resumo "2.2 Valores".
+function extrairMoldeTabelaValoresComercialNovo(xml){
+  const idx1 = xml.indexOf(TOKEN_MATERIAL_COMERCIAL_NOVO);
+  if (idx1 === -1) return null;
+  const idx2 = xml.indexOf(TOKEN_MATERIAL_COMERCIAL_NOVO, idx1 + 1);
+
+  const trRe = /<w:tr\b[\s\S]*?<\/w:tr>/g;
+  const rows = [];
+  let m;
+  while ((m = trRe.exec(xml)) !== null){ rows.push({xml:m[0], start:m.index, end:m.index+m[0].length}); }
+
+  function acharBloco(idxToken){
+    if (idxToken === -1) return null;
+    const itemIdx = rows.findIndex(r => r.start <= idxToken && idxToken < r.end);
+    if (itemIdx < 1 || itemIdx+1 >= rows.length) return null;
+    let tblStart = xml.lastIndexOf('<w:tbl>', rows[itemIdx-1].start);
+    if (tblStart === -1) tblStart = xml.lastIndexOf('<w:tbl ', rows[itemIdx-1].start);
+    if (tblStart === -1) return null;
+    const tblEnd = xml.indexOf('</w:tbl>', rows[itemIdx].end) + '</w:tbl>'.length;
+    return {
+      tblStart, tblEnd,
+      preambulo: xml.slice(tblStart, rows[itemIdx-1].start),
+      headerRowXml: rows[itemIdx-1].xml,
+      itemRowXml: rows[itemIdx].xml,
+      totalRowXml: rows[itemIdx+1].xml,
+    };
+  }
+
+  const bloco1 = acharBloco(idx1);
+  if (!bloco1) return null;
+  const bloco2 = acharBloco(idx2);
+
+  // Parágrafo-título "Bloco 2", entre o fim da 1ª tabela e o início da 2ª — serve de molde de
+  // título pra blocos extras (3º em diante) também.
+  const heading2Xml = bloco2 ? xml.slice(bloco1.tblEnd, bloco2.tblStart) : '';
+
+  // Tabela de resumo "2.2 Valores": localizada pelo rótulo fixo "Valor total do sistema" (único
+  // no documento), com as outras 3 linhas em posição fixa ao redor dela (Bloco 1, [Bloco 2], total, extenso).
+  const idxTotalGeral = rows.findIndex(r => r.xml.indexOf('Valor total do sistema') !== -1);
+  if (idxTotalGeral < 1 || idxTotalGeral+1 >= rows.length) return null;
+  const rowTotalGeral = rows[idxTotalGeral];
+  const rowExtenso = rows[idxTotalGeral+1];
+  const rowBloco2Resumo = rows[idxTotalGeral-1];
+  const rowBloco1Resumo = rows[idxTotalGeral-2];
+  if (!rowBloco1Resumo || rowBloco1Resumo.xml.indexOf('Bloco 1') === -1) return null;
+
+  return { bloco1, bloco2, heading2Xml, rowBloco1Resumo, rowBloco2Resumo, rowTotalGeral, rowExtenso };
+}
+
+function preencherValoresComercialNovo(xml, blocosPcc){
+  const molde = extrairMoldeTabelaValoresComercialNovo(xml);
+  if (!molde){ log(`Aviso: não encontrei a tabela de valores (${TOKEN_MATERIAL_COMERCIAL_NOVO}) no template.`); return xml; }
+  if (!blocosPcc || blocosPcc.length === 0) return xml;
+
+  const TITULO_BLOCO_PADRAO = `<w:p><w:pPr><w:spacing w:before="200" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:bCs/><w:color w:val="9C3B0F"/></w:rPr><w:t xml:space="preserve">Bloco 2</w:t></w:r></w:p>`;
+
+  // ---------- 1) Tabelas de itens: uma por bloco. Só usa "Bloco 2" do modelo (se a PCC tiver
+  // mais de um bloco); do 3º em diante, clona a estrutura do "Bloco 2" (ou do principal, se nem
+  // o 2 existir no modelo) renomeando o título. Com 1 bloco só, a tabela do "Bloco 2" nem entra. ----------
+  const subtotais = [];
+  let tabelasXml = '';
+  blocosPcc.forEach((bloco, i) => {
+    let preambulo, headerRowXml, itemRowMolde, totalRowMolde, tituloXml = '';
+    if (i === 0){
+      ({ preambulo, headerRowXml, itemRowXml: itemRowMolde, totalRowXml: totalRowMolde } = molde.bloco1);
+    } else if (i === 1 && molde.bloco2){
+      tituloXml = molde.heading2Xml;
+      ({ preambulo, headerRowXml, itemRowXml: itemRowMolde, totalRowXml: totalRowMolde } = molde.bloco2);
+    } else {
+      const base = molde.bloco2 || molde.bloco1;
+      tituloXml = (molde.heading2Xml || TITULO_BLOCO_PADRAO).replace('>Bloco 2<', `>Bloco ${i+1}<`);
+      ({ preambulo, headerRowXml, itemRowXml: itemRowMolde, totalRowXml: totalRowMolde } = base);
+    }
+    let subtotal = 0;
+    const itensXml = bloco.linhas.map(l => {
+      subtotal += parseBRNumber(l.vtotal);
+      return preencherLinhaItemPccPosicional(itemRowMolde, l);
+    }).join('');
+    const totalXml = substituirTextoDaEnesimaCelula(totalRowMolde, 1, formatBRL(subtotal));
+    tabelasXml += tituloXml + preambulo + headerRowXml + itensXml + totalXml + '</w:tbl>';
+    subtotais.push(subtotal);
+  });
+
+  if (blocosPcc.length > 1){
+    log(`PCC dividida em ${blocosPcc.length} blocos no Word. Total geral: R$ ${formatBRL(subtotais.reduce((a,b)=>a+b,0))}.`);
+  }
+
+  // ---------- 2) Resumo "2.2 Valores": uma linha por bloco + total geral + extenso ----------
+  const totalGeral = subtotais.reduce((a,b) => a+b, 0);
+  let resumoBlocosXml = '';
+  subtotais.forEach((subtotal, i) => {
+    const rowMolde = (i === 0 ? molde.rowBloco1Resumo : (molde.rowBloco2Resumo || molde.rowBloco1Resumo)).xml;
+    let rowXml = rowMolde.replace(/Bloco \d+/, `Bloco ${i+1}`);
+    rowXml = substituirTextoDaEnesimaCelula(rowXml, 1, 'R$ ' + formatBRL(subtotal));
+    resumoBlocosXml += rowXml;
+  });
+  const rowTotalGeralXml = substituirTextoDaEnesimaCelula(molde.rowTotalGeral.xml, 1, 'R$ ' + formatBRL(totalGeral));
+  const rowExtensoXml = molde.rowExtenso.xml.replace('[valor por extenso]', escapeXml(valorPorExtenso(totalGeral)));
+
+  // ---------- 3) Remonta o xml final numa única passada, com os offsets ORIGINAIS (evita
+  // recalcular posições depois de já ter editado a região anterior). ----------
+  const fimItemTables = molde.bloco2 ? molde.bloco2.tblEnd : molde.bloco1.tblEnd;
+  const inicioResumo = molde.rowBloco1Resumo.start;
+  const fimResumo = molde.rowExtenso.end;
+
+  return xml.slice(0, molde.bloco1.tblStart)
+    + tabelasXml
+    + xml.slice(fimItemTables, inicioResumo)
+    + resumoBlocosXml + rowTotalGeralXml + rowExtensoXml
+    + xml.slice(fimResumo);
+}
+
+// ---------- Nota (opcional) da tabela de valores ----------
+// Localiza a linha mesclada "Nota (opcional): [...]" pelo texto fixo do rótulo.
+// Se houver texto, substitui o placeholder; se não, remove a linha inteira.
+function preencherNotaValores(xml, nota){
+  const re = /<w:tr\b[\s\S]*?<\/w:tr>/g;
+  let match, rowStart=-1, rowEnd=-1, rowXml=null;
+  while((match = re.exec(xml)) !== null){
+    if (match[0].indexOf('Nota (opcional)') !== -1){
+      rowXml = match[0]; rowStart = match.index; rowEnd = match.index + match[0].length; break;
+    }
+  }
+  if (rowXml === null){ log('Aviso: não encontrei a linha de nota na tabela de valores.'); return xml; }
+  if (!nota || !nota.trim()){
+    log('Nota da tabela de valores em branco — linha removida.');
+    return xml.slice(0, rowStart) + xml.slice(rowEnd);
+  }
+  let tCount = 0;
+  const novaRow = rowXml.replace(/(<w:t[^>]*>)([^<]*)(<\/w:t>)/g, (m, open, _txt, close)=>{
+    tCount++;
+    if (tCount === 2){
+      const openAttr = open.includes('xml:space') ? open : open.replace('<w:t','<w:t xml:space="preserve"');
+      return `${openAttr}${escapeXml(nota.trim())}${close}`;
+    }
+    return m;
+  });
+  log('Nota da tabela de valores preenchida.');
+  return xml.slice(0, rowStart) + novaRow + xml.slice(rowEnd);
+}
+
+// ---------- Prazo de fabricação / instalação (por rótulo, sem precisar de token no modelo) ----------
+// Localiza a linha da tabela pelo texto do rótulo (1ª célula) e troca o texto da célula de valor (2ª célula).
+function preencherValorPorRotuloTabela(xml, rotulo, novoValor){
+  if (!novoValor) return xml;
+  const re = /<w:tr\b[\s\S]*?<\/w:tr>/g;
+  let match;
+  while((match = re.exec(xml)) !== null){
+    if (match[0].indexOf(rotulo) !== -1){
+      const rowXml = match[0];
+      const rowStart = match.index, rowEnd = match.index + match[0].length;
+      const tMatches = [...rowXml.matchAll(/<w:t[^>]*>[^<]*<\/w:t>/g)];
+      if (tMatches.length < 2){ log(`Aviso: não achei rótulo + valor na linha "${rotulo}".`); return xml; }
+      const last = tMatches[tMatches.length-1];
+      const novoRun = last[0].replace(/(<w:t[^>]*>)([^<]*)(<\/w:t>)/, (m,open,_txt,close)=>{
+        const openAttr = open.includes('xml:space') ? open : open.replace('<w:t','<w:t xml:space="preserve"');
+        return `${openAttr}${escapeXml(novoValor)}${close}`;
+      });
+      const novaLinha = rowXml.slice(0,last.index) + novoRun + rowXml.slice(last.index+last[0].length);
+      return xml.slice(0,rowStart) + novaLinha + xml.slice(rowEnd);
+    }
+  }
+  log(`Aviso: não encontrei a linha "${rotulo}" na tabela de prazos.`);
+  return xml;
+}
+
+// Dimensões reais da área de foto no template (célula da tabela): ~5,13 x 3,49 cm
+const FOTO_W_EMU = 1656715;   // 2609 twips (2909 de célula menos 150+150 de margem interna)
+const FOTO_H_EMU = 1257300;   // 1980 twips (2100 de linha menos 60+60 de margem interna)
+const FOTO_RATIO = FOTO_W_EMU / FOTO_H_EMU; // ~1.318
+
+// Redimensiona a imagem PROPORCIONALMENTE pra caber dentro do quadro, sem cortar nada
+// (equivalente a "object-fit: contain"). Se a proporção da foto não bater exatamente com
+// a do quadro, sobra uma margem de um lado — nunca corta conteúdo. A centralização (nos dois eixos)
+// já vem de graça do modelo: a célula tem vAlign="center" e o parágrafo tem jc="center".
+// Carrega o arquivo como Image e devolve um Blob JPEG redimensionado (mantendo a proporção,
+// sem cortar), limitando o lado maior — usada tanto pra montar o Word quanto pra salvar neste
+// navegador. Foto de celular sem redimensionar facilmente passa de vários MB em base64 — por isso
+// TODA foto passa por aqui antes de ser guardada, o que também deixa o app mais leve.
+async function redimensionarImagem(file, maxLado, qualidade){
+  const img = await new Promise((resolve,reject)=>{
+    const im = new Image();
+    im.onload = ()=>resolve(im);
+    im.onerror = ()=>reject(new Error('não consegui carregar essa imagem — o arquivo pode estar corrompido ou não ser uma imagem válida'));
+    im.src = URL.createObjectURL(file);
+  });
+  const srcRatio = img.naturalWidth / img.naturalHeight;
+  let outW, outH;
+  if (img.naturalWidth >= img.naturalHeight){
+    outW = Math.min(img.naturalWidth, maxLado);
+    outH = Math.round(outW / srcRatio);
+  } else {
+    outH = Math.min(img.naturalHeight, maxLado);
+    outW = Math.round(outH * srcRatio);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = outW; canvas.height = outH;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, outW, outH);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', qualidade));
+  return { blob, srcRatio };
+}
+
+async function ajustarImagemParaCaber(file){
+  const { blob, srcRatio } = await redimensionarImagem(file, 900, 0.9);
+
+  // Tamanho final de exibição no Word (EMU), encaixando dentro do quadro sem cortar.
+  let extCx, extCy;
+  if (srcRatio > FOTO_RATIO){
+    extCx = FOTO_W_EMU;
+    extCy = Math.round(FOTO_W_EMU / srcRatio);
+  } else {
+    extCy = FOTO_H_EMU;
+    extCx = Math.round(FOTO_H_EMU * srcRatio);
+  }
+  return { blob, extCx, extCy };
+}
+
+// Insere a foto (já cortada na proporção certa) no lugar do placeholder de texto,
+// sempre no tamanho fixo da célula — não herda o tamanho/proporção da foto original.
+// Localiza o <w:r>...</w:r> INTEIRO que contém o token (não só o <w:t>) —
+// crítico porque inserir um <w:r> novo dentro do <w:t> deixaria um <w:r> aninhado
+// dentro de outro <w:r>, o que é inválido no formato do Word e faz a imagem
+// "escapar" do lugar (foi exatamente o bug visto no teste anterior).
+function localizarRunDoToken(xml, token){
+  const re = /(<w:t[^>]*>)([^<]*?)(<\/w:t>)/g;
+  let m, target = null;
+  while((m = re.exec(xml)) !== null){
+    if (m[2].indexOf(token) !== -1){ target = m; break; }
+  }
+  if (!target) return null;
+  const before = xml.slice(0, target.index);
+  const runStarts = [...before.matchAll(/<w:r(?:\s[^>]*)?>/g)];
+  if (runStarts.length === 0) return null;
+  const runStart = runStarts[runStarts.length-1].index;
+  const runEndIdx = xml.indexOf('</w:r>', target.index + target[0].length);
+  if (runEndIdx === -1) return null;
+  const runEnd = runEndIdx + '</w:r>'.length;
+  return { runStart, runEnd };
+}
+
+async function inserirFotoNoBloco(zip, blocoXml, file, docPrIdRef, relCounterRef, mediaCounterRef){
+  const token = '[clique aqui e insira a foto do produto]';
+  const pos = localizarRunDoToken(blocoXml, token);
+  if (!pos) return blocoXml;
+
+  const { blob: imagemAjustada, extCx, extCy } = await ajustarImagemParaCaber(file);
+  const mediaIdx = mediaCounterRef.value++;
+  const mediaName = `image_gen_${mediaIdx}.jpg`;
+  zip.file(`word/media/${mediaName}`, await imagemAjustada.arrayBuffer());
+
+  const relId = `rIdGen${relCounterRef.value++}`;
+  const docPrId = docPrIdRef.value++;
+
+  let rels = await zip.file('word/_rels/document.xml.rels').async('string');
+  rels = rels.replace('</Relationships>',
+    `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${mediaName}"/></Relationships>`);
+  zip.file('word/_rels/document.xml.rels', rels);
+
+  let ct = await zip.file('[Content_Types].xml').async('string');
+  if (ct.indexOf('Extension="jpg"') === -1){
+    ct = ct.replace('</Types>', `<Default Extension="jpg" ContentType="image/jpeg"/></Types>`);
+    zip.file('[Content_Types].xml', ct);
+  }
+
+  const drawingXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">`+
+    `<wp:extent cx="${extCx}" cy="${extCy}"/>`+
+    `<wp:effectExtent l="0" t="0" r="0" b="0"/>`+
+    `<wp:docPr id="${docPrId}" name="Picture ${docPrId}"/>`+
+    `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>`+
+    `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`+
+    `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">`+
+    `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">`+
+    `<pic:nvPicPr><pic:cNvPr id="${docPrId}" name="Picture ${docPrId}"/><pic:cNvPicPr/></pic:nvPicPr>`+
+    `<pic:blipFill><a:blip r:embed="${relId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`+
+    `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${extCx}" cy="${extCy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>`+
+    `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+
+  return blocoXml.slice(0, pos.runStart) + drawingXml + blocoXml.slice(pos.runEnd);
+}
+
+// Substitui, dentro de um bloco de XML isolado (um card), a 1ª ocorrência de cada token.
+function preencherTextoBloco(blocoXml, token, lines){
+  return replaceNthPlaceholder(blocoXml, token, 0, lines);
+}
+
+// Localiza o bloco de linhas de UM card (3 <w:tr>: título, foto/descrição, especificações),
+// usa como molde, e devolve {before, template, after} da região inteira de cards no doc.
+function extrairMoldeCards(xml){
+  const re = /<w:tr\b[\s\S]*?<\/w:tr>/g;
+  const rows = [];
+  let m;
+  while((m = re.exec(xml)) !== null){ rows.push({xml:m[0], start:m.index, end:m.index+m[0].length}); }
+  const headerIdx = [];
+  rows.forEach((r,i)=>{ if (/PRODUTO\s+\d+\s*—/.test(r.xml)) headerIdx.push(i); });
+  if (headerIdx.length === 0) return null;
+  const first = headerIdx[0];
+  const last = headerIdx[headerIdx.length-1];
+  const blockStart = rows[first].start;
+  const blockEnd = rows[last+2] ? rows[last+2].end : rows[rows.length-1].end;
+  const templateBlock = rows[first].xml + rows[first+1].xml + rows[first+2].xml;
+  return { before: xml.slice(0, blockStart), templateBlock, after: xml.slice(blockEnd) };
+}
+
+async function gerarBlocosDeCards(zip, templateBlock, produtosSelecionados, imageInputs, docPrIdRef, relCounterRef, mediaCounterRef){
+  let saida = '';
+  for (let i=0;i<produtosSelecionados.length;i++){
+    const {codigo, prod} = produtosSelecionados[i];
+    log(`Preenchendo card ${i+1} de ${produtosSelecionados.length}: ${prod.nome}`);
+    // Libera o navegador pra repintar a tela entre cada card — sem isso, o processamento de
+    // várias fotos em sequência pode travar a interface por alguns segundos sem dar feedback visual.
+    await new Promise(r => setTimeout(r, 0));
+    let bloco = templateBlock.replace(/PRODUTO\s+1(\s*—)/, `PRODUTO ${i+1}$1`);
+    bloco = preencherTextoBloco(bloco, '[NOME DO PRODUTO]', [prod.nome]);
+    bloco = preencherTextoBloco(bloco, '[inserir breve descrição do produto]', [prod.desc]);
+    const bullets = bulletLines(prod.espec).map(l=>'• '+l);
+    bloco = preencherTextoBloco(bloco, '[inserir especificações técnicas do produto]', bullets.length?bullets:['']);
+    const file = imageInputs[codigo];
+    if (file){
+      try{
+        bloco = await inserirFotoNoBloco(zip, bloco, file, docPrIdRef, relCounterRef, mediaCounterRef);
+      }catch(err){
+        log(`  Aviso: não consegui inserir a foto de "${prod.nome}" (${err && err.message ? err.message : 'erro desconhecido'}) — segui sem a foto, o resto do card continua.`);
+      }
+    } else {
+      log(`  (sem foto para ${codigo} — placeholder de texto mantido)`);
+    }
+    saida += bloco;
+  }
+  return saida;
+}
+
+function montarPreviewTexto(){
+  const ehComercial = tipoProposta === 'comercial';
+  const cliente = document.getElementById('fCliente').value || '[NOME DO CLIENTE]';
+  const contato = document.getElementById('fContato').value || '[NOME DO CONTATO]';
+  const obra = document.getElementById('fObra').value || '[NOME DA OBRA]';
+  const codigo = document.getElementById('fCodigo').value || '[Nº DA PROPOSTA]';
+  const revisao = document.getElementById('fRevisao').value || '[REVISÃO]';
+  const dataEmissao = document.getElementById('fData').value;
+  const dataFmt = dataEmissao ? (()=>{ const [a,m,d]=dataEmissao.split('-'); return `${d}/${m}/${a}`; })() : '[DATA DE EMISSÃO]';
+  const nota = document.getElementById('fNotaValores').value.trim();
+
+  let out = '';
+  out += `TIPO: ${ehComercial ? 'Comercial' : 'Manutenção'}\n`;
+  out += `PROPOSTA Nº ${codigo}  |  ${revisao}  |  Emissão: ${dataFmt}\n`;
+  out += `Cliente: ${cliente}   Contato: ${contato}   Obra: ${obra}\n\n`;
+
+  out += `PRODUTOS SELECIONADOS (${selectedCodes.length}):\n`;
+  if (selectedCodes.length === 0){ out += '  (nenhum selecionado)\n'; }
+  selectedCodes.forEach((c,i)=>{
+    const p = catalogData.find(x=>x.codigo===c);
+    out += `  ${i+1}. ${p ? p.nome : '['+c+' não encontrado]'}${window.__imageInputs[c] ? ' (com foto)' : ''}\n`;
+  });
+
+  out += `\nITENS INCLUSOS:\n`;
+  const linhas = coletarPcc();
+  const blocosPreview = agruparBlocosPcc(linhas);
+  let total = 0;
+  if (linhas.length === 0){ out += '  (nenhum item preenchido)\n'; }
+  blocosPreview.forEach((bloco, bi)=>{
+    let subtotal = 0;
+    if (bi > 0){ out += `  📦 ${bloco.nome || 'Bloco '+(bi+1)}\n`; }
+    bloco.linhas.forEach(l=>{
+      subtotal += parseBRNumber(l.vtotal);
+      out += `  ${l.material} — ${l.qtd} ${l.un} x R$ ${l.vunit} = R$ ${l.vtotal}\n`;
+    });
+    if (blocosPreview.length > 1){ out += `  Subtotal: R$ ${formatBRL(subtotal)}\n`; }
+    total += subtotal;
+  });
+  out += `  TOTAL GERAL: R$ ${formatBRL(total)}\n`;
+  out += `  Por extenso: ${valorPorExtenso(total)}\n`;
+  out += `  Nota: ${nota ? nota : '(em branco — linha removida da tabela)'}\n`;
+
+  if (ehComercial){
+    const prazoFab = document.getElementById('fPrazoFab').value || '(vazio)';
+    const prazoInst = document.getElementById('fPrazoInst').value || '(vazio)';
+    out += `\nPRAZOS:\n  Fabricação: ${prazoFab}\n  Instalação: ${prazoInst}\n`;
+  } else {
+    const prazoExec = document.getElementById('fPrazoExecucao').value || '(vazio)';
+    out += `\nPRAZO DE EXECUÇÃO DOS SERVIÇOS: ${prazoExec}\n`;
+  }
+
+  return out;
+}
+document.getElementById('previewBtn').addEventListener('click', ()=>{
+  const box = document.getElementById('previewBox');
+  try{
+    box.style.display = 'block';
+    box.textContent = montarPreviewTexto();
+    box.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }catch(err){
+    box.style.display = 'block';
+    box.textContent = 'Erro ao montar a pré-visualização: ' + err.message;
+    console.error(err);
+  }
+});
+
+// ---------- Exportar / Importar dados do formulário (.json) ----------
+function coletarDadosForm(){
+  return {
+    tipoProposta,
+    fCliente: document.getElementById('fCliente').value,
+    fContato: document.getElementById('fContato').value,
+    fObra: document.getElementById('fObra').value,
+    fCodigo: document.getElementById('fCodigo').value,
+    fData: document.getElementById('fData').value,
+    fRevisao: document.getElementById('fRevisao').value,
+    fPrazoFab: document.getElementById('fPrazoFab').value,
+    fPrazoInst: document.getElementById('fPrazoInst').value,
+    fPrazoExecucao: document.getElementById('fPrazoExecucao').value,
+    fNotaValores: document.getElementById('fNotaValores').value,
+    selectedCodes,
+    pcc: coletarPcc(),
+    revisaoBaseline,
+  };
+}
+
+// Aplica um objeto de dados (do JSON exportado ou do rascunho automático) de volta no formulário.
+// Usada tanto pelo import manual de JSON quanto pela restauração automática de rascunho.
+function aplicarDadosNoFormulario(dados){
+  tipoProposta = dados.tipoProposta === 'manutencao' ? 'manutencao' : 'comercial';
+  const radio = document.querySelector(`input[name="tipoProposta"][value="${tipoProposta}"]`);
+  if (radio) radio.checked = true;
+  atualizarVisibilidadePorTipo();
+
+  document.getElementById('fCliente').value = dados.fCliente || '';
+  document.getElementById('fContato').value = dados.fContato || '';
+  document.getElementById('fObra').value = dados.fObra || '';
+  document.getElementById('fCodigo').value = dados.fCodigo || '';
+  document.getElementById('fData').value = dados.fData || '';
+  document.getElementById('fRevisao').value = dados.fRevisao || 'REV. 00';
+  document.getElementById('fPrazoFab').value = dados.fPrazoFab || '30 dias';
+  document.getElementById('fPrazoInst').value = dados.fPrazoInst || '3 dias';
+  document.getElementById('fPrazoExecucao').value = dados.fPrazoExecucao || '2 dias úteis';
+  document.getElementById('fNotaValores').value = dados.fNotaValores || '';
+
+  document.getElementById('pccBody').innerHTML = '';
+  const gruposRestaurados = agruparBlocosPcc(dados.pcc || []);
+  gruposRestaurados.forEach((grupo, gi) => {
+    if (gruposRestaurados.length > 1){
+      addPccDividerRow(grupo.nome, gi === 0);
+    }
+    grupo.linhas.forEach(l => addPccRow(l));
+  });
+  revisaoBaseline = dados.revisaoBaseline || null;
+  updateTotal();
+
+  selectedCodes = Array.isArray(dados.selectedCodes) ? dados.selectedCodes : [];
+  renderIncludedList();
+  renderSearchResults();
+}
+
+document.getElementById('exportJsonBtn').addEventListener('click', ()=>{
+  const dados = coletarDadosForm();
+  const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const nome = (dados.fCliente || 'proposta').replace(/[\\/:*?"<>|]/g,'_');
+  a.href = url; a.download = `Dados_${nome}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+});
+document.getElementById('importJsonBtn').addEventListener('click', ()=>{
+  document.getElementById('importJsonFile').click();
+});
+document.getElementById('importJsonFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  try{
+    const texto = await file.text();
+    const dados = JSON.parse(texto);
+    aplicarDadosNoFormulario(dados);
+    log('Dados importados do JSON. Lembre-se: fotos dos produtos não são salvas no JSON — reanexe-as manualmente.');
+    document.getElementById('log').style.display = 'block';
+  }catch(err){
+    alert('Erro ao importar JSON: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+// ---------- Banco de imagens: importação em lote por pasta ----------
+// Todo arquivo da pasta selecionada entra pro banco de imagens (persistente, reaproveitado em
+// propostas futuras — nunca precisa selecionar a mesma pasta de novo). Além disso, o app tenta
+// casar cada arquivo com um produto do catálogo: primeiro por Código Interno (igualdade exata),
+// senão por nome do produto (classificarMatchTexto — "exato" já vem marcado pra anexar na hora,
+// "parecido" fica pra você conferir e decidir).
+let bancoImportPendente = null; // { arquivos: [{file, nomeArquivo, slug, match}] }
+
+function normalizarCodigoArquivo(nomeArquivo){
+  return nomeArquivo.replace(/\.[^.]+$/, '').trim().toUpperCase();
+}
+
+function onBancoImagensSelecionado(e){
+  const files = Array.from(e.target.files || []).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name));
+  const wrap = document.getElementById('fotoPastaPreviewWrap');
+  if (files.length === 0){
+    bancoImportPendente = null;
+    wrap.innerHTML = '<div class="hint">Nenhuma imagem encontrada nessa pasta.</div>';
+    return;
+  }
+  const usados = new Set();
+  const arquivos = files.map(file => {
+    const slug = slugify(nomeAmigavelDoArquivo(file.name)) + '-' + file.size;
+    const chaveCodigo = normalizarCodigoArquivo(file.name);
+    let match = null;
+    const porCodigo = catalogData.find(p => (p.codigo||'').trim().toUpperCase() === chaveCodigo);
+    if (porCodigo){
+      match = { codigo: porCodigo.codigo, nome: porCodigo.nome, tipo: 'codigo', jaTinhaFoto: !!porCodigo.temFoto };
+    } else {
+      let melhor = null;
+      catalogData.forEach(p => {
+        if (usados.has(p.codigo)) return;
+        const tipo = classificarMatchTexto(nomeAmigavelDoArquivo(file.name), p.nome);
+        if (!tipo) return;
+        if (!melhor || (tipo === 'exato' && melhor.tipo !== 'exato')) melhor = {produto: p, tipo};
+      });
+      if (melhor) match = { codigo: melhor.produto.codigo, nome: melhor.produto.nome, tipo: melhor.tipo, jaTinhaFoto: !!melhor.produto.temFoto };
+    }
+    if (match) usados.add(match.codigo);
+    return { file, nomeArquivo: file.name, slug, match };
+  });
+  const semFoto = catalogData.filter(p => !usados.has(p.codigo) && !p.temFoto);
+  bancoImportPendente = { arquivos };
+  renderPreviewBancoImagens(semFoto);
+}
+
+function renderPreviewBancoImagens(itensAindaSemFoto){
+  const wrap = document.getElementById('fotoPastaPreviewWrap');
+  if (!bancoImportPendente || bancoImportPendente.arquivos.length === 0){
+    wrap.innerHTML = '';
+    return;
+  }
+  const { arquivos } = bancoImportPendente;
+  const comMatch = arquivos.map((a, idx) => ({...a, idx})).filter(a => a.match);
+  const semMatch = arquivos.filter(a => !a.match);
+
+  const linhasMatch = comMatch.map(a => {
+    const url = URL.createObjectURL(a.file);
+    const marcado = a.match.tipo !== 'parecido';
+    const tag = a.match.tipo === 'codigo'
+      ? '<span style="color:var(--ok);">✓ código</span>'
+      : (a.match.tipo === 'exato' ? '<span style="color:var(--ok);">✓ nome exato</span>' : '<span style="color:#b8860b;">≈ nome parecido — confira</span>');
+    return `<div class="included-row">
+      <input type="checkbox" class="bancoAnexarCheck" data-idx="${a.idx}" ${marcado ? 'checked' : ''}>
+      <img src="${url}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex-shrink:0;">
+      <div class="inc-info"><span class="inc-code">${escapeHtmlLocal(a.match.codigo)}</span> — ${escapeHtmlLocal(a.match.nome)} ${tag}${a.match.jaTinhaFoto ? ' <span style="color:#b8860b;">(já tem foto — vai substituir)</span>' : ''}<div style="font-size:11px;color:var(--sub);">arquivo: ${escapeHtmlLocal(a.nomeArquivo)}</div></div>
+    </div>`;
+  }).join('');
+
+  const semMatchHtml = semMatch.length
+    ? `<div class="hint" style="margin-top:8px;">${semMatch.length} arquivo(s) sem produto correspondente no catálogo agora — vão pro banco de imagens mesmo assim, pra usar quando você incluir esse produto no futuro: ${semMatch.slice(0,15).map(a=>escapeHtmlLocal(a.nomeArquivo)).join(', ')}${semMatch.length>15?'…':''}</div>`
+    : '';
+  const semFotoHtml = itensAindaSemFoto.length
+    ? `<div class="hint" style="margin-top:4px;">${itensAindaSemFoto.length} item(ns) do catálogo continuam sem foto (nenhum arquivo correspondente nesta pasta): ${itensAindaSemFoto.slice(0,15).map(p=>escapeHtmlLocal(p.codigo)).join(', ')}${itensAindaSemFoto.length>15?'…':''}</div>`
+    : '';
+  const tituloMatch = comMatch.length
+    ? `<div class="hint" style="margin-top:10px;font-weight:bold;color:var(--ink);">${comMatch.length} imagem(ns) casaram com produtos do catálogo — desmarque o que não quiser anexar agora (todas vão pro banco de qualquer forma):</div>${linhasMatch}`
+    : '<div class="hint" style="margin-top:10px;">Nenhuma imagem desta pasta casou com um produto do catálogo agora — todas vão pro banco pra usar depois.</div>';
+
+  wrap.innerHTML = `
+    ${tituloMatch}
+    ${semMatchHtml}
+    ${semFotoHtml}
+    <div class="row-actions" style="margin-top:10px;">
+      <button class="btn-primary" id="confirmarBancoImagensBtn">✅ Salvar ${arquivos.length} imagem(ns) no banco</button>
+      <button class="btn-ghost" id="cancelarBancoImagensBtn">Cancelar</button>
+    </div>`;
+  document.getElementById('confirmarBancoImagensBtn').addEventListener('click', confirmarImportacaoBancoImagens);
+  document.getElementById('cancelarBancoImagensBtn').addEventListener('click', ()=>{
+    bancoImportPendente = null;
+    document.getElementById('bancoImagensInput').value = '';
+    wrap.innerHTML = '';
+  });
+}
+
+async function confirmarImportacaoBancoImagens(){
+  if (!bancoImportPendente) return;
+  const { arquivos } = bancoImportPendente;
+  const wrap = document.getElementById('fotoPastaPreviewWrap');
+  document.getElementById('log').style.display = 'block';
+  const checados = new Set();
+  wrap.querySelectorAll('.bancoAnexarCheck:checked').forEach(chk => checados.add(Number(chk.dataset.idx)));
+
+  let anexadas = 0;
+  for (let i=0;i<arquivos.length;i++){
+    const a = arquivos[i];
+    wrap.innerHTML = `<div class="hint">Salvando imagens no banco... ${i+1}/${arquivos.length} (${escapeHtmlLocal(a.nomeArquivo)})</div>`;
+    // Libera o navegador pra repintar entre uma foto e outra (mesmo motivo do card do Word: várias
+    // fotos em sequência sem isso trava a tela sem dar feedback visual).
+    await new Promise(r => setTimeout(r, 0));
+    try{
+      const { blob } = await redimensionarImagem(a.file, 900, 0.85);
+      const base64 = await fileParaBase64(blob);
+      await storageSet('banco_imagem:' + a.slug, {base64});
+      const idxIndice = bancoImagensIndice.findIndex(x => x.slug === a.slug);
+      const registro = { slug: a.slug, nomeArquivo: a.nomeArquivo };
+      if (idxIndice === -1) bancoImagensIndice.push(registro); else bancoImagensIndice[idxIndice] = registro;
+
+      if (a.match && checados.has(i)){
+        window.__imageInputs[a.match.codigo] = blob;
+        await salvarFotoNoCatalogo(a.match.codigo, blob);
+        delete window.__sugestoesBancoPendentes[a.match.codigo];
+        anexadas++;
+      }
+    }catch(err){
+      log(`Aviso: não consegui salvar "${a.nomeArquivo}" no banco (${err.message}).`);
+    }
+  }
+  await storageSet('banco_imagens_indice', bancoImagensIndice);
+  atualizarStatusBancoImagens();
+
+  log(`Banco de imagens atualizado: ${arquivos.length} imagem(ns) salva(s), ${anexadas} já anexada(s) direto ao produto correspondente.`);
+  bancoImportPendente = null;
+  document.getElementById('bancoImagensInput').value = '';
+  wrap.innerHTML = `<div class="hint" style="color:var(--ok);">✅ ${arquivos.length} imagem(ns) no banco (${anexadas} anexada(s) agora).</div>`;
+  renderSearchResults();
+  renderIncludedList();
+}
+document.getElementById('bancoImagensInput').addEventListener('change', onBancoImagensSelecionado);
+
+// Varre o catálogo inteiro em busca de produtos sem foto que batam com alguma imagem já
+// salva no banco — útil depois de subir imagens novas, ou depois de cadastrar produtos novos,
+// sem precisar re-selecionar a pasta de fotos de novo.
+document.getElementById('sincronizarBancoBtn').addEventListener('click', ()=>{
+  const wrap = document.getElementById('sugestaoBancoWrap');
+  if (bancoImagensIndice.length === 0){
+    wrap.innerHTML = '<div class="hint">O banco de imagens ainda está vazio — selecione uma pasta de fotos acima primeiro.</div>';
+    return;
+  }
+  const semFoto = catalogData.filter(p => !p.temFoto);
+  const sugestoes = [];
+  semFoto.forEach(p => {
+    const match = buscarImagemNoBancoParaProduto(p.nome);
+    if (match) sugestoes.push({produto: p, match});
+  });
+  if (sugestoes.length === 0){
+    wrap.innerHTML = '<div class="hint">Nenhum produto sem foto bateu com uma imagem do banco.</div>';
+    return;
+  }
+  const linhasHtml = sugestoes.map((s, i) => {
+    const tag = s.match.tipo === 'exato'
+      ? '<span style="color:var(--ok);">✓ exato</span>'
+      : '<span style="color:#b8860b;">≈ parecido — confira</span>';
+    return `<div class="included-row">
+      <input type="checkbox" class="sugestaoBancoCheck" data-idx="${i}" ${s.match.tipo === 'exato' ? 'checked' : ''}>
+      <div class="inc-info">
+        <span class="inc-code">${escapeHtmlLocal(s.produto.codigo)}</span> — ${escapeHtmlLocal(s.produto.nome)} ${tag}
+        <div style="font-size:11px;color:var(--sub);">imagem do banco: ${escapeHtmlLocal(s.match.nomeArquivo)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.innerHTML = `
+    <div class="hint" style="margin-top:10px;font-weight:bold;color:var(--ink);">${sugestoes.length} produto(s) sem foto casaram com o banco de imagens — desmarque o que não quiser anexar:</div>
+    ${linhasHtml}
+    <div class="row-actions" style="margin-top:10px;">
+      <button class="btn-primary" id="confirmarSugestaoBancoBtn">✅ Anexar marcados</button>
+      <button class="btn-ghost" id="cancelarSugestaoBancoBtn">Cancelar</button>
+    </div>`;
+  document.getElementById('confirmarSugestaoBancoBtn').addEventListener('click', async ()=>{
+    const marcados = [...wrap.querySelectorAll('.sugestaoBancoCheck:checked')].map(chk => sugestoes[Number(chk.dataset.idx)]);
+    document.getElementById('log').style.display = 'block';
+    let anexadas = 0;
+    for (const s of marcados){
+      const blob = await hidratarImagemDoBanco(s.match.slug);
+      if (!blob){ log(`Aviso: não consegui carregar "${s.match.nomeArquivo}" do banco.`); continue; }
+      window.__imageInputs[s.produto.codigo] = blob;
+      await salvarFotoNoCatalogo(s.produto.codigo, blob);
+      anexadas++;
+    }
+    log(`Sincronização com o banco de imagens: ${anexadas} produto(s) atualizado(s).`);
+    wrap.innerHTML = `<div class="hint" style="color:var(--ok);">✅ ${anexadas} produto(s) atualizado(s).</div>`;
+    renderSearchResults();
+    renderIncludedList();
+  });
+  document.getElementById('cancelarSugestaoBancoBtn').addEventListener('click', ()=>{ wrap.innerHTML=''; });
+});
+
+// ---------- Sincronizar "Produtos incluídos" a partir da PCC ----------
+// Compara o texto de cada linha da PCC com o nome de cada produto do catálogo. Como a PCC do
+// Excel normalmente já traz o Material via lookup de Código (não digitado à mão), bate exato na
+// maioria das vezes — mas trata "parecido" separado de "exato" pra nunca incluir um produto
+// errado sem você confirmar. Linha de mão de obra/frete/material genérico não bate com nada do
+// catálogo — isso é esperado, não é erro.
+function normalizarTextoMatch(s){
+  return String(s||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+// Genérica: usada tanto pra comparar material da PCC × nome do produto (sincronizar com a PCC)
+// quanto nome de arquivo × nome do produto (banco de imagens).
+function classificarMatchTexto(textoA, textoB){
+  const a = normalizarTextoMatch(textoA);
+  const b = normalizarTextoMatch(textoB);
+  if (!a || !b) return null;
+  if (a === b) return 'exato';
+  if (a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a))) return 'parecido';
+  const setA = new Set(a.split(' ').filter(w=>w.length>2));
+  const setB = new Set(b.split(' ').filter(w=>w.length>2));
+  if (setA.size===0 || setB.size===0) return null;
+  let comuns = 0;
+  setA.forEach(w=>{ if (setB.has(w)) comuns++; });
+  const razao = comuns / Math.min(setA.size, setB.size);
+  return razao >= 0.6 ? 'parecido' : null;
+}
+function sugerirProdutosDaPcc(){
+  const linhas = coletarPcc();
+  const vistos = new Set();
+  const sugestoes = [];
+  linhas.forEach(l=>{
+    const chave = normalizarTextoMatch(l.material);
+    if (!chave || vistos.has(chave)) return;
+    vistos.add(chave);
+    let melhor = null;
+    catalogData.forEach(p=>{
+      const tipo = classificarMatchTexto(l.material, p.nome);
+      if (!tipo) return;
+      if (!melhor || (tipo === 'exato' && melhor.tipo !== 'exato')) melhor = {produto: p, tipo};
+    });
+    if (melhor) sugestoes.push({material: l.material, produto: melhor.produto, tipo: melhor.tipo});
+  });
+  return sugestoes;
+}
+document.getElementById('sugerirPccBtn').addEventListener('click', ()=>{
+  const wrap = document.getElementById('sugestaoPccWrap');
+  const sugestoes = sugerirProdutosDaPcc();
+  if (sugestoes.length === 0){
+    wrap.innerHTML = '<div class="hint">Nenhuma linha da PCC bateu com um produto do catálogo (confira se o catálogo já foi carregado).</div>';
+    return;
+  }
+  const linhasHtml = sugestoes.map((s,i) => {
+    const jaIncluido = selectedCodes.includes(s.produto.codigo);
+    const marcado = jaIncluido || s.tipo === 'exato';
+    const tag = s.tipo === 'exato'
+      ? '<span style="color:var(--ok);">✓ exato</span>'
+      : '<span style="color:#b8860b;">≈ parecido — confira</span>';
+    return `<div class="included-row">
+      <input type="checkbox" class="sugestaoPccCheck" data-idx="${i}" ${marcado?'checked':''} ${jaIncluido?'disabled':''}>
+      <div class="inc-info">
+        <div style="font-size:12px;color:var(--sub);">PCC: "${escapeHtmlLocal(s.material)}"</div>
+        <span class="inc-code">${escapeHtmlLocal(s.produto.codigo)}</span> — ${escapeHtmlLocal(s.produto.nome)} ${tag}
+        ${jaIncluido ? ' <span class="hint" style="color:var(--sub);">(já está incluído)</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+  wrap.innerHTML = `
+    <div class="hint" style="margin-top:10px;font-weight:bold;color:var(--ink);">${sugestoes.length} correspondência(s) encontrada(s) — desmarque o que não quiser incluir:</div>
+    ${linhasHtml}
+    <div class="row-actions" style="margin-top:10px;">
+      <button class="btn-primary" id="confirmarSugestaoPccBtn">✅ Incluir marcados</button>
+      <button class="btn-ghost" id="cancelarSugestaoPccBtn">Cancelar</button>
+    </div>`;
+  document.getElementById('confirmarSugestaoPccBtn').addEventListener('click', async ()=>{
+    const codigosIncluidos = [];
+    wrap.querySelectorAll('.sugestaoPccCheck:checked:not(:disabled)').forEach(chk=>{
+      const s = sugestoes[Number(chk.dataset.idx)];
+      if (!selectedCodes.includes(s.produto.codigo)){
+        selectedCodes.push(s.produto.codigo);
+        codigosIncluidos.push(s.produto.codigo);
+      }
+    });
+    renderIncludedList();
+    log(`Sincronização com a PCC: ${codigosIncluidos.length} produto(s) incluído(s) automaticamente.`);
+    wrap.innerHTML = `<div class="hint" style="color:var(--ok);">✅ ${codigosIncluidos.length} produto(s) incluído(s). Confira a lista "Produtos incluídos" abaixo.</div>`;
+    for (const codigo of codigosIncluidos){
+      await hidratarFotoDoProduto(codigo);
+      await tentarPuxarFotoDoBancoAutomaticamente(codigo);
+    }
+    renderIncludedList();
+  });
+  document.getElementById('cancelarSugestaoPccBtn').addEventListener('click', ()=>{ wrap.innerHTML=''; });
+});
+
+
+// ---------- Salvamento por cliente ----------
+// Cada proposta fica guardada sob a chave "cliente:{slug}", com um índice leve separado
+// (pra listar sem precisar baixar o conteúdo inteiro de cada um, que pode ter texto grande
+// com PCC extensa). Antes de você digitar o nome do cliente, o trabalho ainda fica protegido
+// numa chave temporária — assim que preencher o nome, o próximo salvamento já migra pra lá.
+const CLIENTE_TEMP_KEY = 'rascunho_sem_cliente';
+let clienteAtualSlug = null; // slug do cliente carregado/sendo editado agora
+let salvamentoTimer = null;
+let restaurandoDados = false; // evita autosave disparar enquanto estamos aplicando dados carregados
+
+function slugify(nome){
+  return String(nome||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // tira acento
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'sem-nome';
+}
+function formularioTemConteudo(){
+  return selectedCodes.length > 0 || coletarPcc().length > 0 ||
+    !!document.getElementById('fCliente').value.trim() ||
+    !!document.getElementById('fCodigo').value.trim();
+}
+function chaveDeSalvamentoAtual(){
+  const nome = document.getElementById('fCliente').value.trim();
+  return nome ? ('cliente:' + slugify(nome)) : CLIENTE_TEMP_KEY;
+}
+
+async function salvarAgora(){
+  if (restaurandoDados) return;
+  if (!formularioTemConteudo()) return;
+  try{
+    const dados = coletarDadosForm();
+    dados.salvoEm = Date.now();
+    const chave = chaveDeSalvamentoAtual();
+    await storageSet(chave, dados);
+
+    const statusEl = document.getElementById('rascunhoStatus');
+    if (statusEl) statusEl.textContent = 'Salvo às ' + new Date(dados.salvoEm).toLocaleTimeString('pt-BR');
+
+    // Só entra no índice de clientes quando já tem nome — o rascunho temporário (sem nome) fica
+    // de fora da lista, é só uma rede de segurança até você identificar o cliente.
+    if (chave.startsWith('cliente:')){
+      clienteAtualSlug = chave.slice('cliente:'.length);
+      await atualizarIndiceClientes(clienteAtualSlug, dados);
+    }
+  }catch(err){
+    console.error('Falha ao salvar:', err);
+  }
+}
+function agendarSalvamento(){
+  if (restaurandoDados) return;
+  clearTimeout(salvamentoTimer);
+  salvamentoTimer = setTimeout(salvarAgora, 1200);
+}
+// Escuta qualquer edição no formulário (delegação de evento — cobre campos criados dinamicamente
+// como linhas da PCC e itens de 4.2, sem precisar registrar listener um por um).
+document.addEventListener('input', agendarSalvamento);
+document.addEventListener('change', agendarSalvamento);
+document.addEventListener('click', agendarSalvamento); // cobre +Adicionar item, remover, etc.
+
+async function atualizarIndiceClientes(slug, dados){
+  let indice = await storageGet('indice_clientes') || [];
+  const total = (dados.pcc||[]).reduce((acc,l)=>acc+parseBRNumber(l.vtotal),0);
+  const resumo = { slug, nome: dados.fCliente || '(sem nome)', codigo: dados.fCodigo || '', revisao: dados.fRevisao || '', total, salvoEm: dados.salvoEm };
+  const idx = indice.findIndex(c => c.slug === slug);
+  if (idx === -1) indice.push(resumo); else indice[idx] = resumo;
+  indice.sort((a,b) => (b.salvoEm||0) - (a.salvoEm||0));
+  await storageSet('indice_clientes', indice);
+}
+
+// Lista de clientes salvos fica recolhida por padrão (evita rolagem grande quando acumula
+// muita proposta) — clique no cabeçalho pra abrir/fechar. Filtro por nome/código funciona mesmo
+// fechada, e abre a lista sozinho se você digitar algo.
+let listaClientesIndiceCache = [];
+
+document.getElementById('clientesToggle').addEventListener('click', ()=>{
+  const body = document.getElementById('clientesBody');
+  const aberto = body.style.display !== 'none';
+  body.style.display = aberto ? 'none' : 'block';
+  document.getElementById('clientesSeta').textContent = aberto ? '▶' : '▼';
+});
+document.getElementById('clientesBusca').addEventListener('input', (e)=>{
+  if (e.target.value.trim()){
+    document.getElementById('clientesBody').style.display = 'block';
+    document.getElementById('clientesSeta').textContent = '▼';
+  }
+  renderListaClientesFiltrada(e.target.value);
+});
+
+async function renderListaClientes(){
+  const wrap = document.getElementById('listaClientesWrap');
+  if (!wrap) return;
+  listaClientesIndiceCache = await storageGet('indice_clientes') || [];
+  const countEl = document.getElementById('clientesCount');
+  if (countEl) countEl.textContent = listaClientesIndiceCache.length ? `(${listaClientesIndiceCache.length})` : '';
+  renderListaClientesFiltrada(document.getElementById('clientesBusca').value);
+}
+
+function renderListaClientesFiltrada(termoBusca){
+  const wrap = document.getElementById('listaClientesWrap');
+  if (!wrap) return;
+  const termo = (termoBusca||'').trim().toLowerCase();
+  const indice = termo
+    ? listaClientesIndiceCache.filter(c => (c.nome||'').toLowerCase().includes(termo) || (c.codigo||'').toLowerCase().includes(termo))
+    : listaClientesIndiceCache;
+  if (listaClientesIndiceCache.length === 0){
+    wrap.innerHTML = '<div class="hint">Nenhuma proposta salva ainda. Preencha os dados e um "💾 Salvar" abaixo, ou espere o salvamento automático depois de preencher o nome do cliente.</div>';
+    return;
+  }
+  if (indice.length === 0){
+    wrap.innerHTML = `<div class="hint">Nenhum cliente salvo bate com "${escapeHtmlLocal(termoBusca)}".</div>`;
+    return;
+  }
+  wrap.innerHTML = indice.map(c => `
+    <div class="cliente-row" data-slug="${escapeHtmlLocal(c.slug)}">
+      <div class="cliente-info">
+        <div class="cliente-nome">${escapeHtmlLocal(c.nome)}${c.codigo ? ' <span class="cliente-codigo">('+escapeHtmlLocal(c.codigo)+')</span>' : ''}</div>
+        <div class="hint">${c.revisao ? escapeHtmlLocal(c.revisao)+' — ' : ''}R$ ${formatBRL(c.total)} — salvo em ${c.salvoEm ? new Date(c.salvoEm).toLocaleString('pt-BR') : '?'}</div>
+      </div>
+      <button class="btn-primary abrirClienteBtn" data-slug="${escapeHtmlLocal(c.slug)}" style="padding:6px 12px;">Abrir</button>
+      <button class="btn-ghost excluirClienteBtn" data-slug="${escapeHtmlLocal(c.slug)}" style="padding:6px 10px;" title="Excluir esta proposta salva">🗑</button>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('.abrirClienteBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>carregarCliente(btn.dataset.slug));
+  });
+  wrap.querySelectorAll('.excluirClienteBtn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if (!confirm('Excluir esta proposta salva? Não dá pra desfazer.')) return;
+      await storageDelete('cliente:' + btn.dataset.slug);
+      let indice = await storageGet('indice_clientes') || [];
+      indice = indice.filter(c => c.slug !== btn.dataset.slug);
+      await storageSet('indice_clientes', indice);
+      renderListaClientes();
+    });
+  });
+}
+
+async function carregarCliente(slug){
+  const dados = await storageGet('cliente:' + slug);
+  if (!dados){ alert('Não consegui carregar essa proposta.'); return; }
+  restaurandoDados = true;
+  aplicarDadosNoFormulario(dados);
+  clienteAtualSlug = slug;
+  restaurandoDados = false;
+  await hidratarFotosDosSelecionados();
+  renderIncludedList();
+  document.getElementById('rascunhoStatus').textContent = 'Carregado — última vez salvo em ' + (dados.salvoEm ? new Date(dados.salvoEm).toLocaleString('pt-BR') : '?');
+  log(`Proposta de "${dados.fCliente}" carregada — catálogo e modelo já estavam prontos, PCC e revisão vieram junto.`);
+  document.getElementById('log').style.display = 'block';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+document.getElementById('novaPropostaBtn').addEventListener('click', ()=>{
+  if (formularioTemConteudo() && !confirm('Iniciar uma proposta nova vai limpar os campos atuais da tela (o que já estava salvo continua salvo). Continuar?')) return;
+  restaurandoDados = true;
+  aplicarDadosNoFormulario({});
+  clienteAtualSlug = null;
+  restaurandoDados = false;
+  document.getElementById('rascunhoStatus').textContent = '';
+  log('Formulário limpo pra uma proposta nova.');
+  document.getElementById('log').style.display = 'block';
+});
+
+document.getElementById('salvarClienteBtn').addEventListener('click', async ()=>{
+  if (!document.getElementById('fCliente').value.trim()){
+    alert('Preencha o nome do cliente antes de salvar (é a chave que organiza a lista).');
+    return;
+  }
+  await salvarAgora();
+  await renderListaClientes();
+  log('Proposta salva na lista de clientes.');
+  document.getElementById('log').style.display = 'block';
+});
+
+// Se tinha algo digitado antes de nomear o cliente (rascunho temporário), oferece recuperar.
+async function verificarRascunhoTemporario(){
+  const dados = await storageGet(CLIENTE_TEMP_KEY);
+  if (!dados) return;
+  const banner = document.getElementById('rascunhoBanner');
+  const texto = document.getElementById('rascunhoBannerTexto');
+  if (!banner) return;
+  const quando = dados.salvoEm ? new Date(dados.salvoEm).toLocaleString('pt-BR') : 'sessão anterior';
+  texto.textContent = `Tem um rascunho sem nome de cliente salvo (${quando}), de antes de identificar o cliente. Restaurar?`;
+  banner.style.display = 'flex';
+  document.getElementById('restaurarRascunhoBtn').onclick = ()=>{
+    restaurandoDados = true;
+    aplicarDadosNoFormulario(dados);
+    restaurandoDados = false;
+    banner.style.display = 'none';
+  };
+  document.getElementById('descartarRascunhoBtn').onclick = async ()=>{
+    await storageDelete(CLIENTE_TEMP_KEY);
+    banner.style.display = 'none';
+  };
+}
+verificarRascunhoTemporario();
+renderListaClientes();
+
+// Avisa antes de fechar/recarregar a aba se houver conteúdo preenchido — o salvamento já
+// acontece sozinho, mas essa confirmação evita fechar por engano sem perceber.
+window.addEventListener('beforeunload', (e)=>{
+  if (formularioTemConteudo()){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// Monta o .docx da proposta a partir do estado atual do formulário e devolve o blob pronto —
+// usada tanto pelo botão "Gerar proposta" (baixa direto) quanto pelo "Pré-visualizar documento"
+// (renderiza na tela antes de baixar). Retorna null se algum erro de validação já foi logado
+// (ex: modelo não carregado); erros inesperados sobem pra quem chamou tratar.
+async function construirBlobProposta(){
+  const ehComercial = tipoProposta === 'comercial';
+  const templateArrayBuffer = ehComercial ? templateArrayBufferComercial : templateArrayBufferManutencao;
+  if (!templateArrayBuffer){ log(`Erro: carregue o modelo .docx de ${ehComercial?'comercial':'manutenção'} (passo 3).`); return null; }
+  if (selectedCodes.length === 0){ log('Erro: selecione ao menos um produto no catálogo (passo 2).'); return null; }
+
+  await hidratarFotosDosSelecionados();
+
+  log(`Abrindo modelo (${ehComercial ? 'comercial' : 'manutenção'})...`);
+  const zip = await JSZip.loadAsync(templateArrayBuffer);
+  let xml = await zip.file('word/document.xml').async('string');
+
+  const relCounterRef = {value: 9000};
+  const mediaCounterRef = {value: 1};
+  const docPrIdRef = {value: 9000};
+  const imageInputs = window.__imageInputs || {};
+
+  const molde = extrairMoldeCards(xml);
+  if (!molde){
+    log('Erro: não encontrei nenhum card "PRODUTO N —" no modelo.');
+    return null;
+  }
+  // O card modelo (o único "PRODUTO 1 —" do .docx) precisa ter esses três textos EXATOS —
+  // é neles que o nome/descrição/especificação de cada produto entram. Se alguém digitar um
+  // texto de exemplo por cima do placeholder no Word (ex: trocar "[NOME DO PRODUTO]" por
+  // "Coletor Solar Plano 2m²" direto), o app não tem mais onde encaixar o nome de cada produto
+  // — e todo card sai clonado com esse mesmo texto de exemplo, em vez dos dados reais.
+  const PLACEHOLDERS_CARD = ['[NOME DO PRODUTO]', '[inserir breve descrição do produto]', '[inserir especificações técnicas do produto]'];
+  const placeholdersFaltando = PLACEHOLDERS_CARD.filter(token => molde.templateBlock.indexOf(token) === -1);
+  if (placeholdersFaltando.length > 0){
+    log(`Erro: o card modelo "PRODUTO 1 —" do .docx não tem mais o(s) placeholder(s): ${placeholdersFaltando.join(' | ')}. Provavelmente um texto de exemplo (ex: "Coletor Solar Plano 2m²") foi digitado por cima do placeholder original. Abra o modelo no Word, no card "PRODUTO 1 —", e deixe esse(s) texto(s) exatamente como acima (entre colchetes) — sem isso, TODOS os produtos sairiam com o mesmo nome/descrição/especificação do card modelo. Corrija e gere de novo.`);
+    return null;
+  }
+  const produtosSelecionados = selectedCodes.map(codigo => ({codigo, prod: catalogData.find(p=>p.codigo===codigo)})).filter(p=>{
+    if (!p.prod) log(`Aviso: código ${p.codigo} não encontrado no catálogo, pulei.`);
+    return !!p.prod;
+  });
+  log(`Gerando ${produtosSelecionados.length} card(s) de produto (o modelo tinha slots fixos — agora é dinâmico)...`);
+  const blocosGerados = await gerarBlocosDeCards(zip, molde.templateBlock, produtosSelecionados, imageInputs, docPrIdRef, relCounterRef, mediaCounterRef);
+  xml = molde.before + blocosGerados + molde.after;
+
+  const cliente = document.getElementById('fCliente').value;
+  const contato = document.getElementById('fContato').value;
+  const obra = document.getElementById('fObra').value;
+  const codigo = document.getElementById('fCodigo').value;
+  const dataEmissao = document.getElementById('fData').value;
+  const revisao = document.getElementById('fRevisao').value;
+
+  // Cada campo tenta os dois conjuntos de token (modelo comercial novo e o antigo/manutenção) —
+  // um .docx só vai ter um dos dois, então tentar os dois não faz mal nenhum.
+  if (cliente){
+    xml = xml.split('[EMPRESA / CLIENTE FINAL]').join(escapeXml(cliente));
+    xml = xml.split('[NOME DO CLIENTE]').join(escapeXml(cliente));
+  }
+  if (contato){
+    xml = xml.split('[CONTATO RESPONSÁVEL]').join(escapeXml(contato));
+    xml = xml.split('[NOME DO CONTATO]').join(escapeXml(contato));
+  }
+  if (obra) xml = xml.split('[NOME DA OBRA]').join(escapeXml(obra));
+  if (codigo){
+    xml = xml.split('[CÓDIGO]').join(escapeXml(codigo));
+    xml = xml.split('[Nº DA PROPOSTA]').join(escapeXml(codigo));
+  }
+  if (revisao) xml = xml.split('[REVISÃO]').join(escapeXml(revisao));
+  if (dataEmissao){
+    const [ano,mes,dia] = dataEmissao.split('-');
+    xml = xml.split('[DATA DE EMISSÃO]').join(`${dia}/${mes}/${ano}`);
+  }
+
+  log('Preenchendo tabela de valores (PCC)...');
+  const linhasPcc = coletarPcc();
+  if (linhasPcc.length === 0){
+    log('Aviso: nenhuma linha da PCC preenchida — a tabela de valores ficará com o placeholder.');
+  } else {
+    const blocosPcc = agruparBlocosPcc(linhasPcc);
+    xml = ehComercial ? preencherValoresComercialNovo(xml, blocosPcc) : preencherBlocosPcc(xml, blocosPcc, TOKENS_PCC_MANUTENCAO);
+  }
+  xml = preencherNotaValores(xml, document.getElementById('fNotaValores').value);
+
+  log('Preenchendo prazos...');
+  if (ehComercial){
+    xml = preencherValorPorRotuloTabela(xml, 'Prazo de fabricação', document.getElementById('fPrazoFab').value);
+    xml = preencherValorPorRotuloTabela(xml, 'Prazo de instalação', document.getElementById('fPrazoInst').value);
+  } else {
+    xml = preencherValorPorRotuloTabela(xml, 'Prazo de execução dos serviços', document.getElementById('fPrazoExecucao').value);
+  }
+
+  zip.file('word/document.xml', xml);
+
+  log('Empacotando arquivo final...');
+  const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  const nomeArq = (cliente||'proposta').replace(/[\\/:*?"<>|]/g,'_');
+  const prefixoArq = ehComercial ? 'Proposta' : 'Proposta_Manutencao';
+  return { blob, nomeDownload: `${prefixoArq}_${nomeArq}.docx` };
+}
+
+function baixarBlobProposta(blob, nomeDownload){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nomeDownload;
+  document.body.appendChild(a); a.click(); a.remove();
+  log(`Pronto! Download iniciado: ${nomeDownload}`);
+}
+
+document.getElementById('generateBtn').addEventListener('click', async ()=>{
+  document.getElementById('log').textContent = '';
+  document.getElementById('log').style.display='block';
+  const btn = document.getElementById('generateBtn');
+  const textoOriginalBtn = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Gerando... aguarde';
+  try{
+    const resultado = await construirBlobProposta();
+    if (!resultado) return;
+    baixarBlobProposta(resultado.blob, resultado.nomeDownload);
+    log('Confira o documento antes de enviar — fotos e quebras de especificação são a parte mais sensível desta primeira versão.');
+  }catch(err){
+    log('Erro: ' + (err && err.message ? err.message : String(err)));
+    console.error(err);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = textoOriginalBtn;
+  }
+});
+
+// ---------- Pré-visualização visual do .docx (docx-preview) ----------
+// Gera o mesmo documento do botão "Gerar proposta", mas em vez de baixar, renderiza na tela —
+// dá pra conferir como ficou (fotos, quebras de texto, tabelas) antes de mandar pro cliente,
+// sem precisar abrir o Word. A renderização não é 100% pixel-perfect ao Word, mas é fiel o
+// suficiente pra pegar erro de dado/formatação antes do envio.
+window.__ultimoBlobProposta = null;
+document.getElementById('previewDocxBtn').addEventListener('click', async ()=>{
+  document.getElementById('log').textContent = '';
+  document.getElementById('log').style.display='block';
+  const btn = document.getElementById('previewDocxBtn');
+  const textoOriginalBtn = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Preparando prévia...';
+  try{
+    const resultado = await construirBlobProposta();
+    if (!resultado) return;
+    window.__ultimoBlobProposta = resultado;
+    const container = document.getElementById('docxPreviewBody');
+    container.innerHTML = '<div class="hint">Renderizando prévia...</div>';
+    document.getElementById('docxPreviewModal').style.display = 'flex';
+    await docx.renderAsync(resultado.blob, container, container, { inWrapper: true });
+    log('Prévia gerada. Confira o documento e feche a janela pra continuar editando, ou baixe direto por ela.');
+  }catch(err){
+    log('Erro ao gerar a prévia: ' + (err && err.message ? err.message : String(err)));
+    console.error(err);
+    document.getElementById('docxPreviewModal').style.display = 'none';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = textoOriginalBtn;
+  }
+});
+document.getElementById('fecharPreviewBtn').addEventListener('click', ()=>{
+  document.getElementById('docxPreviewModal').style.display = 'none';
+});
+document.getElementById('baixarDoPreviewBtn').addEventListener('click', ()=>{
+  if (!window.__ultimoBlobProposta) return;
+  baixarBlobProposta(window.__ultimoBlobProposta.blob, window.__ultimoBlobProposta.nomeDownload);
+});
+</script>
+</body>
+</html>
