@@ -29,10 +29,12 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -y -q curl git iproute2 ca-certificates gnupg debian-keyring debian-archive-keyring apt-transport-https
 
-# Node.js 22 (LTS)
-NODE_MAJOR=0
-command -v node >/dev/null && NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
-if [ "$NODE_MAJOR" -lt 18 ]; then
+# Node.js: se já existe (outros apps da VPS podem depender dele), nunca é trocado.
+if command -v node >/dev/null; then
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+  [ "$NODE_MAJOR" -ge 18 ] || die "o Node.js instalado é a versão $(node -v), e o app precisa da 18 ou mais nova. Não troquei para não afetar outros apps desta VPS. Me avise para combinarmos."
+  echo "Usando o Node.js já instalado: $(node -v)"
+else
   say "Instalando Node.js 22"
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y -q nodejs
