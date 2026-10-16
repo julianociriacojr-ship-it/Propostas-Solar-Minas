@@ -55,6 +55,20 @@ Sem o servidor, abrir o `index.html` direto (ou `python3 -m http.server 8080`) t
 
 As bibliotecas (SheetJS/xlsx 0.18.5, JSZip 3.10.1, docx-preview 0.4.0) ficam em `vendor/`, sem depender de CDN.
 
+## Tela em etapas
+
+A proposta é montada em etapas, uma por vez, com **← Voltar / Próximo →** no rodapé (que também tem o **💾 Salvar**):
+
+1. **🏠 Início** — abrir uma proposta salva (para continuar ou fazer revisão) ou **+ Nova proposta**.
+2. **Cliente** — tipo (comercial/manutenção), dados do cliente e prazos. Mostra qual modelo .docx será usado.
+3. **Valores** — PCC: importar, ajustar MKP/negociação, nota.
+4. **Produtos** — buscar no catálogo, incluir, fotos.
+5. **Gerar** — conferência com ✅/⚠️ de cada etapa (com botão para ir corrigir), pré-visualização e download do .docx.
+
+A barra do topo mostra ✓ nas etapas prontas e ⚠️ no que falta (ex.: produto sem foto). Nenhuma etapa bloqueia: dá para pular e voltar. **⚙️ Configurações** fica à parte, com o que se faz uma vez para a equipe: modelos .docx, planilha do catálogo, banco de imagens e exportar/importar .json.
+
+**Modelos .docx**: ficam salvos no banco do servidor (chaves `modelo` e `modeloManutencao`) e carregam sozinhos para todos. Para trocar, envie o novo em ⚙️ Configurações. Os modelos não ficam no GitHub de propósito (o repositório é público).
+
 ## Custo, MKP e negociação (internos)
 
 Ao importar a PCC, o app lê também a coluna **Custo**, o **MKP** de cada item e o **Índice** de cada bloco (a célula ao lado de "Indice" no título do bloco; 0,90 = 10% de negociação). Na tabela do Passo 1:

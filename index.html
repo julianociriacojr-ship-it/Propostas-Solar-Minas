@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gerador de Propostas — Solar Minas</title>
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
@@ -43,6 +44,36 @@
   .dup-aviso{border:1px solid #e3b4a4;background:#fdf1ec;border-radius:6px;padding:8px 10px;margin-top:8px;font-size:13px;}
   .dup-aviso .dup-item{display:flex;align-items:center;gap:8px;margin-top:4px;}
   .dup-aviso .dup-item span{flex:1;}
+  /* Etapas: uma parte da proposta por vez */
+  .etapas{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px;position:sticky;top:0;z-index:50;background:var(--bg);padding:8px 0;border-bottom:1px solid var(--line);}
+  .etapas button{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:20px;padding:7px 14px;display:inline-flex;align-items:center;gap:6px;}
+  .etapas button .n{background:var(--line);color:var(--ink);width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;}
+  .etapas button.ativa{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .etapas button.ativa .n{background:#fff;color:var(--accent-dark);}
+  .etapas button .st{font-style:normal;font-size:12px;}
+  .etapas .etapa-config{margin-left:auto;}
+  .etapa{display:none;}
+  .etapa.ativa{display:block;}
+  .etapa-rodape{position:sticky;bottom:0;z-index:50;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-top:8px;box-shadow:0 -4px 14px rgba(0,0,0,.06);}
+  .etapa-rodape #rascunhoStatus{flex:1;margin:0;text-align:center;}
+  .etapa-rodape button:disabled{opacity:.35;cursor:default;}
+  .modelo-box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#fbfaf8;}
+  .modelo-box b{display:block;margin-bottom:6px;font-size:13px;}
+  .resumo-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;margin-top:6px;font-size:13px;}
+  .resumo-item .ic{font-size:16px;width:22px;text-align:center;}
+  .resumo-item span.tx{flex:1;}
+  .resumo-item.ok{border-color:#b9d8b9;background:#f3f9f3;}
+  .resumo-item.aviso{border-color:#e6c27a;background:#fff8e8;}
+  @media (max-width:640px){
+    .etapas button{padding:6px 10px;font-size:12px;}
+    .etapas .etapa-config{margin-left:0;}
+    .wrap .fields-grid{grid-template-columns:1fr;}
+    #pccTable{display:block;overflow-x:auto;}
+    #pccTable input{min-width:70px;}
+    #pccTable .pMat{min-width:160px;}
+    .etapa-rodape{flex-wrap:wrap;}
+    .etapa-rodape #rascunhoStatus{flex-basis:100%;order:-1;}
+  }
   .np-foto-preview{max-height:90px;max-width:140px;border:1px solid var(--line);border-radius:6px;margin-top:6px;display:none;}
   button{font-family:inherit;font-size:13px;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;}
   .btn-primary{background:var(--accent);color:#fff;}
@@ -112,30 +143,61 @@
     <button class="btn-ghost" id="descartarRascunhoBtn" style="padding:6px 12px;">Descartar</button>
   </div>
 
-  <div class="step" style="background:#fbfaf8;">
+  <nav class="etapas" id="etapasNav">
+    <button data-etapa="inicio">🏠 Início</button>
+    <button data-etapa="cliente"><span class="n">1</span> Cliente <i class="st"></i></button>
+    <button data-etapa="valores"><span class="n">2</span> Valores <i class="st"></i></button>
+    <button data-etapa="produtos"><span class="n">3</span> Produtos <i class="st"></i></button>
+    <button data-etapa="gerar"><span class="n">4</span> Gerar <i class="st"></i></button>
+    <button data-etapa="config" class="etapa-config">⚙️ Configurações <i class="st"></i></button>
+  </nav>
+
+  <section class="etapa" data-etapa="inicio">
+  <div class="step">
     <h2 id="clientesToggle" style="border:0;padding:0;cursor:pointer;user-select:none;">
-      <span class="n">📁</span>Clientes salvos <span id="clientesCount" class="hint" style="text-transform:none;font-weight:normal;"></span>
-      <span id="clientesSeta" style="margin-left:auto;">▶</span>
+      <span class="n">📁</span>Propostas salvas <span id="clientesCount" class="hint" style="text-transform:none;font-weight:normal;"></span>
+      <span id="clientesSeta" style="margin-left:auto;">▼</span>
     </h2>
-    <div id="clientesBody" style="display:none;">
+    <div class="row-actions" style="margin:10px 0 4px;">
+      <button class="btn-primary" id="novaPropostaBtn">+ Nova proposta</button>
+      <span class="hint" style="align-self:center;">ou abra uma proposta salva abaixo para continuar / fazer revisão.</span>
+    </div>
+    <div id="clientesBody">
       <input type="text" id="clientesBusca" placeholder="Buscar por nome ou código..." style="width:100%;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;margin:10px 0 4px;">
       <div id="listaClientesWrap"></div>
     </div>
-    <div class="row-actions" style="margin-top:12px;">
-      <button class="btn-ghost" id="novaPropostaBtn">+ Nova proposta</button>
-      <button class="btn-primary" id="salvarClienteBtn">💾 Salvar / Atualizar cliente atual</button>
-      <span class="hint" id="rascunhoStatus" style="margin-left:auto;align-self:center;"></span>
+  </div>
+  </section>
+
+  <section class="etapa" data-etapa="cliente">
+  <div class="step">
+    <h2><span class="n">1</span>Cliente e tipo de proposta</h2>
+    <div class="tipo-toggle">
+      <label><input type="radio" name="tipoProposta" value="comercial" checked> Comercial</label>
+      <label><input type="radio" name="tipoProposta" value="manutencao"> Manutenção</label>
+    </div>
+    <div class="file-status" id="modeloResumo" style="margin:-4px 0 12px;"></div>
+    <div class="fields-grid">
+      <div><label>Empresa / Cliente final</label><input id="fCliente" placeholder="Ex: IF Fit Construções e Comércio LTDA"></div>
+      <div><label>Contato responsável</label><input id="fContato" placeholder="Ex: Carlos"></div>
+      <div><label>Obra</label><input id="fObra" placeholder="Ex: Obra Residencial Teste"></div>
+      <div><label>Código do cliente / proposta</label><input id="fCodigo" placeholder="Ex: 0701"></div>
+      <div><label>Data de emissão</label><input id="fData" type="date"></div>
+      <div><label>Revisão</label><input id="fRevisao" placeholder="Ex: REV. 00" value="REV. 00"></div>
+      <div id="camposPrazoComercial" style="display:contents;">
+        <div><label>Prazo de fabricação</label><input id="fPrazoFab" placeholder="Ex: 30 dias" value="30 dias"></div>
+        <div><label>Prazo de instalação</label><input id="fPrazoInst" placeholder="Ex: 3 dias" value="3 dias"></div>
+      </div>
+      <div id="campoPrazoManutencao" style="display:none;">
+        <label>Prazo de execução dos serviços</label><input id="fPrazoExecucao" placeholder="Ex: 2 dias úteis" value="2 dias úteis">
+      </div>
     </div>
   </div>
+  </section>
 
-  <div class="toolbar">
-    <button class="btn-ghost" id="exportJsonBtn">Exportar dados (.json)</button>
-    <button class="btn-ghost" id="importJsonBtn">Importar dados (.json)</button>
-    <input type="file" id="importJsonFile" accept=".json" style="display:none;">
-  </div>
-
+  <section class="etapa" data-etapa="valores">
   <div class="step">
-    <h2><span class="n">1</span>Itens e valores (PCC)</h2>
+    <h2><span class="n">2</span>Itens e valores (PCC)</h2>
     <input type="file" id="pccFile" accept=".xlsx">
     <div class="file-status" id="pccStatus">Nenhuma PCC importada — preencha manualmente abaixo ou importe o arquivo.</div>
     <table class="pcc-grid" id="pccTable">
@@ -158,12 +220,13 @@
       <textarea id="fNotaValores" placeholder="Ex: Valores válidos apenas para pagamento à vista."></textarea>
     </div>
   </div>
+  </section>
 
+  <section class="etapa" data-etapa="produtos">
   <div class="step">
-    <h2><span class="n">2</span>Catálogo de produtos (.xlsx)</h2>
-    <input type="file" id="catalogFile" accept=".xlsx">
-    <div class="file-status" id="catalogStatus">Nenhum arquivo carregado.</div>
-
+    <h2><span class="n">3</span>Produtos da proposta</h2>
+    <div class="hint" style="margin-top:-6px;margin-bottom:8px;">Busque no catálogo e adicione os produtos que entram nos cards da proposta. Cada produto precisa ter foto.</div>
+    <div class="file-status" id="catalogResumo"></div>
     <div class="photodir-row" style="border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;background:#fbfaf8;">
       <div style="flex:1 1 100%;">
         <div class="hint" style="font-weight:bold;color:var(--ink);text-transform:none;">🔗 Popular "Produtos incluídos" a partir da PCC (Passo 1)</div>
@@ -172,22 +235,6 @@
       <button class="btn-ghost" id="sugerirPccBtn">🔗 Sincronizar com a PCC</button>
     </div>
     <div id="sugestaoPccWrap"></div>
-
-    <div class="hint" style="margin-top:8px;">📷 As fotos ficam salvas neste navegador junto com cada produto do catálogo (não precisa reanexar em propostas futuras).</div>
-
-    <div class="photodir-row" style="border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;background:#fbfaf8;">
-      <div style="flex:1 1 100%;">
-        <div class="hint" style="font-weight:bold;color:var(--ink);text-transform:none;">🖼️ Banco de imagens (casa pelo nome do produto)</div>
-        <div class="hint">Selecione uma pasta com fotos — pode ter mais fotos do que produtos, sem problema, e pode subir de novo sempre que trocar ou adicionar imagens. Cada arquivo é comparado com o <b>Código Interno</b> (se o nome do arquivo for igual ao código) ou com o <b>nome do produto</b> — não precisa mais nomear a foto igual ao código. As imagens ficam guardadas neste navegador: ao incluir um produto novo numa proposta, o app já procura sozinho uma foto correspondente aqui.</div>
-        <div class="hint" id="bancoImagensStatus" style="margin-top:4px;"></div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
-        <input type="file" id="bancoImagensInput" webkitdirectory directory multiple accept="image/*">
-        <button class="btn-ghost" id="sincronizarBancoBtn">🔄 Sincronizar catálogo com o banco</button>
-      </div>
-    </div>
-    <div id="fotoPastaPreviewWrap"></div>
-    <div id="sugestaoBancoWrap"></div>
 
     <input type="text" id="catalogSearch" placeholder="Buscar por nome ou código para adicionar..." style="display:none;width:100%;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;margin-top:14px;">
     <div id="searchResultsWrap"></div>
@@ -224,50 +271,74 @@
     <div class="hint" style="margin-top:16px;font-weight:bold;color:var(--ink);">Produtos incluídos nesta proposta</div>
     <div id="includedWrap"></div>
   </div>
+  </section>
 
+  <section class="etapa" data-etapa="gerar">
   <div class="step">
-    <h2><span class="n">3</span>Tipo e modelo da proposta (.docx)</h2>
-    <div class="tipo-toggle">
-      <label><input type="radio" name="tipoProposta" value="comercial" checked> Comercial</label>
-      <label><input type="radio" name="tipoProposta" value="manutencao"> Manutenção</label>
-    </div>
-
-    <div id="modeloComercialWrap">
-      <input type="file" id="templateFile" accept=".docx">
-      <div class="file-status" id="templateStatus">Nenhum arquivo carregado.</div>
-    </div>
-    <div id="modeloManutencaoWrap" style="display:none;">
-      <input type="file" id="templateFileManutencao" accept=".docx">
-      <div class="file-status" id="templateStatusManutencao">Nenhum arquivo carregado.</div>
-    </div>
-    <div class="hint">Usa os placeholders originais do seu modelo — não precisa editar o modelo.</div>
-  </div>
-
-  <div class="step">
-    <h2><span class="n">4</span>Dados do cliente</h2>
-    <div class="fields-grid">
-      <div><label>Empresa / Cliente final</label><input id="fCliente" placeholder="Ex: IF Fit Construções e Comércio LTDA"></div>
-      <div><label>Contato responsável</label><input id="fContato" placeholder="Ex: Carlos"></div>
-      <div><label>Obra</label><input id="fObra" placeholder="Ex: Obra Residencial Teste"></div>
-      <div><label>Código do cliente / proposta</label><input id="fCodigo" placeholder="Ex: 0701"></div>
-      <div><label>Data de emissão</label><input id="fData" type="date"></div>
-      <div><label>Revisão</label><input id="fRevisao" placeholder="Ex: REV. 00" value="REV. 00"></div>
-      <div id="camposPrazoComercial" style="display:contents;">
-        <div><label>Prazo de fabricação</label><input id="fPrazoFab" placeholder="Ex: 30 dias" value="30 dias"></div>
-        <div><label>Prazo de instalação</label><input id="fPrazoInst" placeholder="Ex: 3 dias" value="3 dias"></div>
-      </div>
-      <div id="campoPrazoManutencao" style="display:none;">
-        <label>Prazo de execução dos serviços</label><input id="fPrazoExecucao" placeholder="Ex: 2 dias úteis" value="2 dias úteis">
-      </div>
-    </div>
-  </div>
-
-  <div class="actions-row">
+    <h2><span class="n">4</span>Conferir e gerar</h2>
+    <div id="resumoGerar"></div>
+    <div class="actions-row">
     <button class="btn-ghost" id="previewBtn">Pré-visualizar (texto)</button>
     <button class="btn-ghost" id="previewDocxBtn">👁️ Pré-visualizar documento</button>
     <button class="btn-primary" id="generateBtn">Gerar proposta (.docx)</button>
   </div>
   <div class="preview-box" id="previewBox" style="display:none;"></div>
+  </div>
+  </section>
+
+  <section class="etapa" data-etapa="config">
+  <div class="step">
+    <h2><span class="n">⚙️</span>Modelos da proposta (.docx)</h2>
+    <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Envie cada modelo <b>uma vez só</b>: ele fica salvo no banco da equipe e carrega sozinho para todos os usuários. Só volte aqui para trocar o modelo.</div>
+    <div class="modelo-box"><b>Comercial</b>
+    <div id="modeloComercialWrap">
+      <input type="file" id="templateFile" accept=".docx">
+      <div class="file-status" id="templateStatus">Nenhum arquivo carregado.</div>
+    </div></div>
+    <div class="modelo-box"><b>Manutenção</b>
+    <div id="modeloManutencaoWrap" >
+      <input type="file" id="templateFileManutencao" accept=".docx">
+      <div class="file-status" id="templateStatusManutencao">Nenhum arquivo carregado.</div>
+    </div></div>
+    <div class="hint">Usa os placeholders originais do seu modelo — não precisa editar o modelo.</div>
+  </div>
+  <div class="step">
+    <h2><span class="n">⚙️</span>Catálogo e fotos</h2>
+    <div class="hint" style="margin-top:-6px;margin-bottom:8px;">Planilha do catálogo (.xlsx): importe quando a planilha mestre mudar. O catálogo fica salvo no banco da equipe.</div>
+    <input type="file" id="catalogFile" accept=".xlsx">
+    <div class="file-status" id="catalogStatus">Nenhum arquivo carregado.</div>
+    <div class="hint" style="margin-top:8px;">📷 As fotos ficam salvas neste navegador junto com cada produto do catálogo (não precisa reanexar em propostas futuras).</div>
+
+    <div class="photodir-row" style="border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;background:#fbfaf8;">
+      <div style="flex:1 1 100%;">
+        <div class="hint" style="font-weight:bold;color:var(--ink);text-transform:none;">🖼️ Banco de imagens (casa pelo nome do produto)</div>
+        <div class="hint">Selecione uma pasta com fotos — pode ter mais fotos do que produtos, sem problema, e pode subir de novo sempre que trocar ou adicionar imagens. Cada arquivo é comparado com o <b>Código Interno</b> (se o nome do arquivo for igual ao código) ou com o <b>nome do produto</b> — não precisa mais nomear a foto igual ao código. As imagens ficam guardadas neste navegador: ao incluir um produto novo numa proposta, o app já procura sozinho uma foto correspondente aqui.</div>
+        <div class="hint" id="bancoImagensStatus" style="margin-top:4px;"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+        <input type="file" id="bancoImagensInput" webkitdirectory directory multiple accept="image/*">
+        <button class="btn-ghost" id="sincronizarBancoBtn">🔄 Sincronizar catálogo com o banco</button>
+      </div>
+    </div>
+    <div id="fotoPastaPreviewWrap"></div>
+    <div id="sugestaoBancoWrap"></div>
+  </div>
+  <div class="step">
+    <h2><span class="n">⚙️</span>Cópia manual de uma proposta</h2>
+    <div class="toolbar" style="justify-content:flex-start;margin:0;">
+      <button class="btn-ghost" id="exportJsonBtn">Exportar dados (.json)</button>
+      <button class="btn-ghost" id="importJsonBtn">Importar dados (.json)</button>
+      <input type="file" id="importJsonFile" accept=".json" style="display:none;">
+    </div>
+  </div>
+  </section>
+
+  <div class="etapa-rodape" id="etapaRodape">
+    <button class="btn-ghost" id="etapaVoltarBtn">← Voltar</button>
+    <span class="hint" id="rascunhoStatus"></span>
+    <button class="btn-ghost" id="salvarClienteBtn">💾 Salvar</button>
+    <button class="btn-primary" id="etapaProximaBtn">Próximo →</button>
+  </div>
   <div class="log" id="log" style="display:none;"></div>
 </div>
 
@@ -574,6 +645,7 @@ let selectedCodes = [];
 let templateArrayBufferComercial = null;
 let templateArrayBufferManutencao = null;
 let tipoProposta = 'comercial';
+const nomesModelos = {comercial:"", manutencao:""}; // nome do .docx de cada modelo salvo no banco da equipe
 
 function elementosPorTipo(){
   return {
@@ -583,8 +655,6 @@ function elementosPorTipo(){
 }
 function atualizarVisibilidadePorTipo(){
   const ehComercial = tipoProposta === 'comercial';
-  document.getElementById('modeloComercialWrap').style.display = ehComercial ? 'block' : 'none';
-  document.getElementById('modeloManutencaoWrap').style.display = ehComercial ? 'none' : 'block';
   document.getElementById('camposPrazoComercial').style.display = ehComercial ? 'contents' : 'none';
   document.getElementById('campoPrazoManutencao').style.display = ehComercial ? 'none' : 'block';
 }
@@ -1086,14 +1156,17 @@ async function restaurarConfiguracaoDeTrabalho(){
   if (modeloSalvo && modeloSalvo.base64){
     templateArrayBufferComercial = base64ParaArrayBuffer(modeloSalvo.base64);
     document.getElementById('templateStatus').textContent = `Modelo carregado: ${modeloSalvo.nome} (restaurado automaticamente).`;
+    nomesModelos.comercial = modeloSalvo.nome;
     document.getElementById('templateStatus').classList.add('ok');
   }
   const modeloManutencaoSalvo = await storageGet('modeloManutencao');
   if (modeloManutencaoSalvo && modeloManutencaoSalvo.base64){
     templateArrayBufferManutencao = base64ParaArrayBuffer(modeloManutencaoSalvo.base64);
     document.getElementById('templateStatusManutencao').textContent = `Modelo carregado: ${modeloManutencaoSalvo.nome} (restaurado automaticamente).`;
+    nomesModelos.manutencao = modeloManutencaoSalvo.nome;
     document.getElementById('templateStatusManutencao').classList.add('ok');
   }
+  atualizarStatusEtapas();
 }
 restaurarConfiguracaoDeTrabalho();
 
@@ -1523,6 +1596,7 @@ document.getElementById('templateFile').addEventListener('change', async (e)=>{
   if (!file) return;
   templateArrayBufferComercial = await file.arrayBuffer();
   document.getElementById('templateStatus').textContent = `Modelo carregado: ${file.name}`;
+  nomesModelos.comercial = file.name; atualizarStatusEtapas();
   document.getElementById('templateStatus').classList.add('ok');
   try{
     const base64 = await fileParaBase64(file);
@@ -1537,6 +1611,7 @@ document.getElementById('templateFileManutencao').addEventListener('change', asy
   if (!file) return;
   templateArrayBufferManutencao = await file.arrayBuffer();
   document.getElementById('templateStatusManutencao').textContent = `Modelo carregado: ${file.name}`;
+  nomesModelos.manutencao = file.name; atualizarStatusEtapas();
   document.getElementById('templateStatusManutencao').classList.add('ok');
   try{
     const base64 = await fileParaBase64(file);
@@ -3086,7 +3161,7 @@ async function carregarCliente(slug){
   document.getElementById('rascunhoStatus').textContent = 'Carregado — última vez salvo em ' + (dados.salvoEm ? new Date(dados.salvoEm).toLocaleString('pt-BR') : '?');
   log(`Proposta de "${dados.fCliente}" carregada — catálogo e modelo já estavam prontos, PCC e revisão vieram junto.`);
   document.getElementById('log').style.display = 'block';
-  window.scrollTo({top:0, behavior:'smooth'});
+  irEtapa('cliente');
 }
 
 document.getElementById('novaPropostaBtn').addEventListener('click', ()=>{
@@ -3096,8 +3171,10 @@ document.getElementById('novaPropostaBtn').addEventListener('click', ()=>{
   clienteAtualSlug = null;
   restaurandoDados = false;
   document.getElementById('rascunhoStatus').textContent = '';
+  document.getElementById('fData').value = new Date().toLocaleDateString('sv-SE'); // hoje, AAAA-MM-DD
   log('Formulário limpo pra uma proposta nova.');
-  document.getElementById('log').style.display = 'block';
+  irEtapa('cliente');
+  document.getElementById('fCliente').focus();
 });
 
 document.getElementById('salvarClienteBtn').addEventListener('click', async ()=>{
@@ -3126,6 +3203,7 @@ async function verificarRascunhoTemporario(){
     aplicarDadosNoFormulario(dados);
     restaurandoDados = false;
     banner.style.display = 'none';
+    irEtapa('cliente');
   };
   document.getElementById('descartarRascunhoBtn').onclick = async ()=>{
     await storageDelete(CLIENTE_TEMP_KEY);
@@ -3151,15 +3229,15 @@ window.addEventListener('beforeunload', (e)=>{
 async function construirBlobProposta(){
   const ehComercial = tipoProposta === 'comercial';
   const templateArrayBuffer = ehComercial ? templateArrayBufferComercial : templateArrayBufferManutencao;
-  if (!templateArrayBuffer){ log(`Erro: carregue o modelo .docx de ${ehComercial?'comercial':'manutenção'} (passo 3).`); return null; }
-  if (selectedCodes.length === 0){ log('Erro: selecione ao menos um produto no catálogo (passo 2).'); return null; }
+  if (!templateArrayBuffer){ log(`Erro: o modelo .docx de ${ehComercial?'comercial':'manutenção'} ainda não foi enviado — envie uma vez em ⚙️ Configurações (fica salvo para a equipe).`); return null; }
+  if (selectedCodes.length === 0){ log('Erro: inclua ao menos um produto na etapa 3 (Produtos).'); return null; }
 
   await hidratarFotosDosSelecionados();
   const semFoto = selectedCodes.filter(c => !window.__imageInputs[c]);
   if (semFoto.length){
     const nomes = semFoto.map(c => { const p = catalogData.find(x => x.codigo === c); return `• ${c} — ${p ? p.nome : '?'}`; }).join('\n');
     if (!confirm(`${semFoto.length} produto(s) da proposta estão SEM foto (o card sai com o texto "[clique aqui e insira a foto do produto]"):\n${nomes}\n\nGerar mesmo assim?`)){
-      log('Geração cancelada: anexe as fotos que faltam em "Produtos incluídos" (passo 2).');
+      log('Geração cancelada: anexe as fotos que faltam na etapa 3 (Produtos).');
       return null;
     }
   }
@@ -3319,6 +3397,120 @@ document.getElementById('baixarDoPreviewBtn').addEventListener('click', ()=>{
   if (!window.__ultimoBlobProposta) return;
   baixarBlobProposta(window.__ultimoBlobProposta.blob, window.__ultimoBlobProposta.nomeDownload);
 });
+
+// ---------- Etapas: uma parte da proposta por vez ----------
+// Início (abrir/criar) → 1 Cliente → 2 Valores → 3 Produtos → 4 Gerar. Configurações (modelos,
+// planilha do catálogo, banco de imagens) fica à parte: é feito uma vez e vale para a equipe.
+// As etapas não bloqueiam: dá pra pular e voltar; o que falta aparece como ⚠️ na barra e na etapa 4.
+const ORDEM_ETAPAS = ['inicio', 'cliente', 'valores', 'produtos', 'gerar'];
+let etapaAtual = 'inicio';
+let etapaAntesDaConfig = 'inicio';
+
+function produtosSemFotoNaProposta(){
+  return selectedCodes.filter(c => {
+    const p = catalogData.find(x => x.codigo === c);
+    return !window.__imageInputs[c] && !(p && p.temFoto);
+  });
+}
+// O que está pronto em cada etapa: {ok: true|false|null (vazio), texto}
+function situacaoEtapas(){
+  const ehComercial = tipoProposta === 'comercial';
+  const nomeModelo = ehComercial ? nomesModelos.comercial : nomesModelos.manutencao;
+  const temModelo = !!(ehComercial ? templateArrayBufferComercial : templateArrayBufferManutencao);
+  const cliente = document.getElementById('fCliente').value.trim();
+  const linhas = coletarPcc();
+  const semFoto = produtosSemFotoNaProposta();
+  const naoAchados = selectedCodes.filter(c => !catalogData.some(p => p.codigo === c));
+  return {
+    cliente: cliente
+      ? {ok:true, texto:`Cliente: ${cliente}${document.getElementById('fObra').value.trim() ? ' — obra ' + document.getElementById('fObra').value.trim() : ''} (${ehComercial ? 'comercial' : 'manutenção'})`}
+      : {ok:false, texto:'Falta o nome do cliente.'},
+    valores: linhas.length
+      ? {ok:true, texto:`${linhas.length} item(ns) na PCC — total R$ ${document.getElementById('pccTotal').textContent}`}
+      : {ok:false, texto:'Nenhum item de valor (importe a PCC ou digite os itens).'},
+    produtos: selectedCodes.length === 0
+      ? {ok:false, texto:'Nenhum produto incluído (são os cards com foto da proposta).'}
+      : (semFoto.length || naoAchados.length)
+        ? {ok:false, texto:`${selectedCodes.length} produto(s), mas ${semFoto.length ? semFoto.length + ' sem foto' : ''}${semFoto.length && naoAchados.length ? ' e ' : ''}${naoAchados.length ? naoAchados.length + ' fora do catálogo' : ''}.`}
+        : {ok:true, texto:`${selectedCodes.length} produto(s), todos com foto.`},
+    config: temModelo
+      ? {ok:true, texto:`Modelo ${ehComercial ? 'comercial' : 'de manutenção'}: ${nomeModelo || 'carregado'} (padrão da equipe).`}
+      : {ok:false, texto:`O modelo ${ehComercial ? 'comercial' : 'de manutenção'} (.docx) ainda não foi enviado. Envie uma vez em ⚙️ Configurações — fica salvo para toda a equipe.`},
+  };
+}
+function atualizarStatusEtapas(){
+  const s = situacaoEtapas();
+  document.querySelectorAll('#etapasNav button').forEach(btn => {
+    const st = btn.querySelector('.st');
+    if (!st) return;
+    const e = btn.dataset.etapa;
+    if (e === 'gerar'){ st.textContent = ''; return; }
+    const item = s[e];
+    st.textContent = !item ? '' : item.ok ? '✓' : (e === 'config' || (e === 'produtos' && selectedCodes.length)) ? '⚠️' : '';
+    btn.title = item ? item.texto : '';
+  });
+  const modeloResumo = document.getElementById('modeloResumo');
+  modeloResumo.textContent = (s.config.ok ? '📄 ' : '⚠️ ') + s.config.texto;
+  modeloResumo.classList.toggle('ok', s.config.ok);
+  const catResumo = document.getElementById('catalogResumo');
+  if (catResumo) catResumo.textContent = catalogData.length
+    ? `Catálogo da equipe: ${catalogData.length} produto(s). Para importar uma planilha nova do catálogo ou subir fotos em lote, vá em ⚙️ Configurações.`
+    : 'O catálogo ainda está vazio — importe a planilha do catálogo em ⚙️ Configurações.';
+  if (etapaAtual === 'gerar') renderResumoGerar(s);
+}
+function renderResumoGerar(s){
+  const linhas = [['cliente','1. Cliente'], ['valores','2. Valores'], ['produtos','3. Produtos'], ['config','Modelo']];
+  document.getElementById('resumoGerar').innerHTML = linhas.map(([e, rotulo]) => `
+    <div class="resumo-item ${s[e].ok ? 'ok' : 'aviso'}">
+      <span class="ic">${s[e].ok ? '✅' : '⚠️'}</span>
+      <span class="tx"><b>${rotulo}</b> — ${escapeHtmlLocal(s[e].texto)}</span>
+      <button class="btn-ghost irParaEtapaBtn" data-etapa="${e}">${s[e].ok ? 'Revisar' : 'Corrigir'}</button>
+    </div>`).join('') + `<div class="hint" style="margin-top:8px;">Tudo ✅? Pré-visualize o documento para conferir e baixe o .docx. Os itens ⚠️ não impedem gerar, mas a proposta sai incompleta.</div>`;
+  document.querySelectorAll('#resumoGerar .irParaEtapaBtn').forEach(b => b.addEventListener('click', () => irEtapa(b.dataset.etapa)));
+}
+function irEtapa(nome){
+  if (nome === 'config' && etapaAtual !== 'config') etapaAntesDaConfig = etapaAtual;
+  etapaAtual = nome;
+  document.querySelectorAll('section.etapa').forEach(sec => sec.classList.toggle('ativa', sec.dataset.etapa === nome));
+  document.querySelectorAll('#etapasNav button').forEach(btn => btn.classList.toggle('ativa', btn.dataset.etapa === nome));
+  const pos = ORDEM_ETAPAS.indexOf(nome);
+  const voltar = document.getElementById('etapaVoltarBtn');
+  const proxima = document.getElementById('etapaProximaBtn');
+  voltar.disabled = nome === 'inicio';
+  if (nome === 'config'){
+    proxima.textContent = 'Voltar à proposta →';
+  } else if (pos === ORDEM_ETAPAS.length - 1){
+    proxima.textContent = 'Gerar proposta (.docx)';
+  } else {
+    proxima.textContent = 'Próximo: ' + {inicio:'Cliente', cliente:'Valores', valores:'Produtos', produtos:'Conferir e gerar'}[nome] + ' →';
+  }
+  atualizarStatusEtapas();
+  window.scrollTo({top:0, behavior:'smooth'});
+  try{ sessionStorage.setItem('etapaAtual', nome); }catch(err){}
+}
+document.querySelectorAll('#etapasNav button').forEach(btn => btn.addEventListener('click', () => irEtapa(btn.dataset.etapa)));
+document.getElementById('etapaVoltarBtn').addEventListener('click', ()=>{
+  if (etapaAtual === 'config') return irEtapa(etapaAntesDaConfig);
+  const pos = ORDEM_ETAPAS.indexOf(etapaAtual);
+  if (pos > 0) irEtapa(ORDEM_ETAPAS[pos - 1]);
+});
+document.getElementById('etapaProximaBtn').addEventListener('click', ()=>{
+  if (etapaAtual === 'config') return irEtapa(etapaAntesDaConfig === 'config' ? 'inicio' : etapaAntesDaConfig);
+  const pos = ORDEM_ETAPAS.indexOf(etapaAtual);
+  if (pos === ORDEM_ETAPAS.length - 1) return document.getElementById('generateBtn').click();
+  irEtapa(ORDEM_ETAPAS[pos + 1]);
+});
+let statusEtapasTimer = null;
+['input', 'change', 'click'].forEach(ev => document.addEventListener(ev, ()=>{
+  clearTimeout(statusEtapasTimer);
+  statusEtapasTimer = setTimeout(atualizarStatusEtapas, 300);
+}));
+// Recarregou a página no meio de uma proposta: volta para a mesma etapa.
+(function(){
+  let salva = null;
+  try{ salva = sessionStorage.getItem('etapaAtual'); }catch(err){}
+  irEtapa(salva && (ORDEM_ETAPAS.includes(salva) || salva === 'config') ? salva : 'inicio');
+})();
 </script>
 </body>
 </html>
