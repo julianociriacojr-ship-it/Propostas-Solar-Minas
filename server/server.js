@@ -173,6 +173,13 @@ const STATIC = {
   '/vendor/xlsx.full.min.js': ['vendor/xlsx.full.min.js', 'text/javascript; charset=utf-8', 'public, max-age=604800'],
   '/vendor/jszip.min.js': ['vendor/jszip.min.js', 'text/javascript; charset=utf-8', 'public, max-age=604800'],
   '/vendor/docx-preview.min.js': ['vendor/docx-preview.min.js', 'text/javascript; charset=utf-8', 'public, max-age=604800'],
+  // ícone e manifesto: atalho na área de trabalho / instalar como app
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json; charset=utf-8', 'public, max-age=86400'],
+  '/favicon.ico': ['icones/favicon.ico', 'image/x-icon', 'public, max-age=604800'],
+  '/icones/favicon.ico': ['icones/favicon.ico', 'image/x-icon', 'public, max-age=604800'],
+  '/icones/icon-192.png': ['icones/icon-192.png', 'image/png', 'public, max-age=604800'],
+  '/icones/icon-512.png': ['icones/icon-512.png', 'image/png', 'public, max-age=604800'],
+  '/apple-touch-icon.png': ['icones/apple-touch-icon.png', 'image/png', 'public, max-age=604800'],
 };
 
 async function handleApi(req, res, url){
