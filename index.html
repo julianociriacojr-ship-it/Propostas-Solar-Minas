@@ -74,6 +74,18 @@
     .etapa-rodape{flex-wrap:wrap;}
     .etapa-rodape #rascunhoStatus{flex-basis:100%;order:-1;}
   }
+  .banco-drop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:2px dashed var(--line);border-radius:10px;padding:16px;margin-top:12px;background:#fbfaf8;}
+  .banco-drop > div{flex:1;min-width:200px;}
+  .banco-drop.arrastando{border-color:var(--accent);background:#fbeceb;}
+  .galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:12px;}
+  .galeria .foto-card{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative;}
+  .galeria .foto-card img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#f1ece5;display:block;}
+  .galeria .foto-card .nm{font-size:11px;padding:5px 6px;line-height:1.3;word-break:break-word;flex:1;}
+  .galeria .foto-card .del{position:absolute;top:4px;right:4px;padding:2px 6px;font-size:11px;background:rgba(255,255,255,.9);}
+  .galeria .foto-card.escolher{cursor:pointer;}
+  .galeria .foto-card.escolher:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);}
+  .galeria .foto-card .tag{font-size:10px;color:var(--ok);padding:0 6px 5px;}
+  .galeria .foto-card .tag.par{color:#b8860b;}
   .np-foto-preview{max-height:90px;max-width:140px;border:1px solid var(--line);border-radius:6px;margin-top:6px;display:none;}
   button{font-family:inherit;font-size:13px;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;}
   .btn-primary{background:var(--accent);color:#fff;}
@@ -149,7 +161,8 @@
     <button data-etapa="valores"><span class="n">2</span> Valores <i class="st"></i></button>
     <button data-etapa="produtos"><span class="n">3</span> Produtos <i class="st"></i></button>
     <button data-etapa="gerar"><span class="n">4</span> Gerar <i class="st"></i></button>
-    <button data-etapa="config" class="etapa-config">⚙️ Configurações <i class="st"></i></button>
+    <button data-etapa="imagens" class="etapa-config">🖼️ Imagens <i class="st"></i></button>
+    <button data-etapa="config">⚙️ Configurações <i class="st"></i></button>
   </nav>
 
   <section class="etapa" data-etapa="inicio">
@@ -259,6 +272,7 @@
       <div style="margin-top:8px;">
         <label class="hint" id="npFotoLabel" style="text-transform:uppercase;letter-spacing:.04em;">Foto (obrigatória)</label><br>
         <input type="file" id="npFoto" accept="image/*">
+        <button class="btn-ghost" id="npFotoBancoBtn" type="button">🖼️ Escolher do banco</button>
         <div class="hint" id="npFotoInfo"></div>
         <img id="npFotoPreview" class="np-foto-preview" alt="">
       </div>
@@ -286,6 +300,29 @@
   </div>
   </section>
 
+  <section class="etapa" data-etapa="imagens">
+  <div class="step">
+    <h2><span class="n">🖼️</span>Banco de imagens da equipe</h2>
+    <div class="hint" style="margin-top:-6px;">As fotos ficam guardadas aqui dentro do app, no servidor, para todos os usuários — não precisa mais ir até a pasta do outro servidor. Envie a pasta uma vez; depois é só escolher a foto pelo botão <b>🖼️ Do banco</b> ao lado de cada produto. Foto anexada a um produto também entra aqui sozinha.</div>
+    <div class="banco-drop" id="bancoDrop">
+      <div><b>Arraste fotos ou uma pasta inteira para cá</b><br><span class="hint">JPG, PNG ou WEBP. As fotos são reduzidas para ~900px antes de salvar.</span></div>
+      <label class="btn-ghost">📁 Escolher pasta<input type="file" id="bancoImagensInput" webkitdirectory directory multiple accept="image/*" style="display:none;"></label>
+      <label class="btn-ghost">🖼️ Escolher fotos<input type="file" id="bancoArquivosInput" multiple accept="image/*" style="display:none;"></label>
+    </div>
+    <div id="fotoPastaPreviewWrap"></div>
+    <div class="row-actions">
+      <button class="btn-ghost" id="sincronizarBancoBtn">🔄 Anexar fotos do banco aos produtos sem foto</button>
+    </div>
+    <div id="sugestaoBancoWrap"></div>
+    <div class="row-actions" style="align-items:center;">
+      <input type="text" id="galeriaBusca" placeholder="Buscar imagem pelo nome..." style="flex:1;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;">
+      <span class="hint" id="bancoImagensStatus" style="margin:0;"></span>
+    </div>
+    <div class="galeria" id="galeriaWrap"></div>
+    <div id="galeriaMais" style="text-align:center;margin-top:10px;"></div>
+  </div>
+  </section>
+
   <section class="etapa" data-etapa="config">
   <div class="step">
     <h2><span class="n">⚙️</span>Modelos da proposta (.docx)</h2>
@@ -303,25 +340,11 @@
     <div class="hint">Usa os placeholders originais do seu modelo — não precisa editar o modelo.</div>
   </div>
   <div class="step">
-    <h2><span class="n">⚙️</span>Catálogo e fotos</h2>
+    <h2><span class="n">⚙️</span>Catálogo (planilha)</h2>
     <div class="hint" style="margin-top:-6px;margin-bottom:8px;">Planilha do catálogo (.xlsx): importe quando a planilha mestre mudar. O catálogo fica salvo no banco da equipe.</div>
     <input type="file" id="catalogFile" accept=".xlsx">
     <div class="file-status" id="catalogStatus">Nenhum arquivo carregado.</div>
-    <div class="hint" style="margin-top:8px;">📷 As fotos ficam salvas neste navegador junto com cada produto do catálogo (não precisa reanexar em propostas futuras).</div>
-
-    <div class="photodir-row" style="border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;background:#fbfaf8;">
-      <div style="flex:1 1 100%;">
-        <div class="hint" style="font-weight:bold;color:var(--ink);text-transform:none;">🖼️ Banco de imagens (casa pelo nome do produto)</div>
-        <div class="hint">Selecione uma pasta com fotos — pode ter mais fotos do que produtos, sem problema, e pode subir de novo sempre que trocar ou adicionar imagens. Cada arquivo é comparado com o <b>Código Interno</b> (se o nome do arquivo for igual ao código) ou com o <b>nome do produto</b> — não precisa mais nomear a foto igual ao código. As imagens ficam guardadas neste navegador: ao incluir um produto novo numa proposta, o app já procura sozinho uma foto correspondente aqui.</div>
-        <div class="hint" id="bancoImagensStatus" style="margin-top:4px;"></div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
-        <input type="file" id="bancoImagensInput" webkitdirectory directory multiple accept="image/*">
-        <button class="btn-ghost" id="sincronizarBancoBtn">🔄 Sincronizar catálogo com o banco</button>
-      </div>
-    </div>
-    <div id="fotoPastaPreviewWrap"></div>
-    <div id="sugestaoBancoWrap"></div>
+    
   </div>
   <div class="step">
     <h2><span class="n">⚙️</span>Cópia manual de uma proposta</h2>
@@ -340,6 +363,23 @@
     <button class="btn-primary" id="etapaProximaBtn">Próximo →</button>
   </div>
   <div class="log" id="log" style="display:none;"></div>
+</div>
+
+<div id="bancoPickerModal" style="display:none;position:fixed;inset:0;background:rgba(30,25,20,.65);z-index:1000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:10px;max-width:900px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);">
+      <strong id="bancoPickerTitulo" style="flex:1;">Escolher foto do banco</strong>
+      <label class="btn-ghost" title="Usar uma foto do computador (ela entra no banco também)">💻 Do computador<input type="file" id="bancoPickerArquivo" accept="image/*" style="display:none;"></label>
+      <button class="btn-ghost" id="bancoPickerFechar">✕</button>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--line);">
+      <input type="text" id="bancoPickerBusca" placeholder="Buscar imagem pelo nome..." style="width:100%;border:1px solid var(--line);border-radius:6px;padding:8px;font-size:13px;">
+    </div>
+    <div style="overflow:auto;padding:12px 16px;flex:1;">
+      <div class="galeria" id="bancoPickerGrid"></div>
+      <div id="bancoPickerMais" style="text-align:center;margin-top:10px;"></div>
+    </div>
+  </div>
 </div>
 
 <div id="docxPreviewModal" style="display:none;position:fixed;inset:0;background:rgba(30,25,20,.65);z-index:1000;align-items:center;justify-content:center;padding:20px;">
@@ -851,7 +891,7 @@ function renderSearchResults(){
     // produto na proposta primeiro. Salva no catálogo (salvarFotoNoCatalogo), então fica
     // disponível pra qualquer proposta futura, não só pra esta.
     const anexarFoto = !p.temFoto
-      ? `<label class="btn-ghost anexarFotoBuscaBtn" data-idx="${idx}" title="Anexar foto a este produto agora — fica salva pra sempre no catálogo, mesmo sem incluir na proposta" style="cursor:pointer;">📷 Anexar foto<input type="file" accept="image/*" class="photoInputBusca" data-idx="${idx}" style="display:none;"></label>`
+      ? `<label class="btn-ghost anexarFotoBuscaBtn" data-idx="${idx}" title="Anexar foto a este produto agora — fica salva pra sempre no catálogo, mesmo sem incluir na proposta" style="cursor:pointer;">📷 Anexar foto<input type="file" accept="image/*" class="photoInputBusca" data-idx="${idx}" style="display:none;"></label><button class="btn-ghost doBancoBtn" data-code="${escapeHtmlLocal(p.codigo)}" title="Escolher uma foto do banco de imagens">🖼️ Do banco</button>`
       : '';
     html += `<div class="search-result-row">
       <div class="sr-info"><span class="sr-code">${p.codigo}</span> — ${escapeHtmlLocal(p.nome)}${p.temFoto ? ' 📷' : ''}</div>
@@ -927,6 +967,7 @@ function renderIncludedList(){
       <div class="inc-info"><span class="inc-code">${code}</span> — ${p ? escapeHtmlLocal(p.nome) : '[não encontrado no catálogo]'}${statusFoto}</div>
       <button class="btn-ghost editIncBtn" data-code="${code}" title="Editar nome/descrição/especificação">✏️</button>
       <input type="file" accept="image/*" class="photoInput" data-code="${code}" title="Foto do produto — fica salva neste navegador, não precisa reanexar depois">
+      <button class="btn-ghost doBancoBtn" data-code="${escapeHtmlLocal(code)}" title="Escolher uma foto do banco de imagens">🖼️ Do banco</button>
       <button class="btn-ghost removeIncBtn" data-code="${code}">✕</button>
     </div>`;
   });
@@ -1002,7 +1043,8 @@ function moverProdutoIncluido(code, direcao){
 // índice do catálogo, pra não estourar o limite de tamanho por chave conforme o catálogo cresce.
 // A foto é redimensionada ANTES de salvar — uma foto de celular direto (3-8MB) passa fácil do
 // limite de 5MB por chave quando vira base64; comprimida (~900px) fica bem abaixo disso.
-async function salvarFotoNoCatalogo(codigo, file){
+// opcoes.doBanco: a foto veio do banco de imagens (não precisa guardar lá de novo).
+async function salvarFotoNoCatalogo(codigo, file, opcoes){
   const item = catalogData.find(p => p.codigo === codigo);
   if (!item) return;
   try{
@@ -1015,7 +1057,13 @@ async function salvarFotoNoCatalogo(codigo, file){
     // A partir de agora, o que fica na memória (pra essa geração) é a versão já comprimida —
     // assim o que você vê salvo é exatamente o que vai pro documento.
     window.__imageInputs[codigo] = blob;
-    log(`Foto de "${item.nome || codigo}" salva neste navegador, associada a esse produto.`);
+    // Foto nova vinda do computador também entra no banco, com o nome do produto — fica
+    // disponível para reaproveitar (e para achar pelo nome) em outros produtos.
+    if (!(opcoes && opcoes.doBanco)){
+      const ext = /png/.test(blob.type) ? 'png' : 'jpg';
+      adicionarAoBanco(blob, `${item.nome || codigo}.${ext}`).catch(err => log(`Aviso: a foto ficou no produto, mas não entrou no banco de imagens (${err.message}).`));
+    }
+    log(`Foto de "${item.nome || codigo}" salva, associada a esse produto.`);
     document.getElementById('log').style.display = 'block';
     renderIncludedList();
   }catch(err){
@@ -1066,7 +1114,7 @@ async function tentarPuxarFotoDoBancoAutomaticamente(codigo){
       const blob = await hidratarImagemDoBanco(match.slug);
       if (!blob) return;
       window.__imageInputs[codigo] = blob;
-      await salvarFotoNoCatalogo(codigo, blob);
+      await salvarFotoNoCatalogo(codigo, blob, {doBanco:true});
       log(`📸 Foto puxada automaticamente do banco de imagens para "${item.nome}" (arquivo "${match.nomeArquivo}").`);
       document.getElementById('log').style.display = 'block';
     }catch(err){
@@ -1088,7 +1136,7 @@ async function confirmarSugestaoBancoParaProduto(codigo){
     const blob = await hidratarImagemDoBanco(sugestao.slug);
     if (!blob){ log('Aviso: não consegui carregar essa imagem do banco.'); document.getElementById('log').style.display = 'block'; renderIncludedList(); return; }
     window.__imageInputs[codigo] = blob;
-    await salvarFotoNoCatalogo(codigo, blob);
+    await salvarFotoNoCatalogo(codigo, blob, {doBanco:true});
   }catch(err){
     log(`Aviso: não consegui usar a imagem sugerida (${err.message}).`);
     document.getElementById('log').style.display = 'block';
@@ -1100,8 +1148,8 @@ function atualizarStatusBancoImagens(){
   const el = document.getElementById('bancoImagensStatus');
   if (!el) return;
   el.textContent = bancoImagensIndice.length
-    ? `${bancoImagensIndice.length} imagem(ns) no banco (salvas neste navegador, reaproveitadas em propostas futuras).`
-    : 'Nenhuma imagem no banco ainda — selecione uma pasta acima pra começar.';
+    ? `${bancoImagensIndice.length} imagem(ns) no banco da equipe.`
+    : 'Nenhuma imagem no banco ainda — arraste a pasta de fotos acima para começar.';
 }
 
 // Catálogo e modelo são "config de trabalho" (reaproveitados entre propostas diferentes), por
@@ -1278,12 +1326,12 @@ function renderProdutosSemFoto(){
   }
   let html = `<div class="dup-aviso" style="background:#fbfaf8;border-color:var(--line);">
     <b>${pendentes.length} produto(s) ainda sem foto.</b> Anexe a foto de cada um aqui — fica salva no catálogo para todas as propostas.
-    Tem as fotos numa pasta? Use o <b>🖼️ Banco de imagens</b> acima e depois <b>🔄 Sincronizar catálogo com o banco</b>, que anexa várias de uma vez.
+    Use <b>🖼️ Do banco</b> para escolher uma foto já guardada no app. Para subir muitas fotos de uma vez, use a página <b>🖼️ Imagens</b>.
     <a href="#" id="fecharSemFoto" style="float:right;">fechar</a>`;
   pendentes.slice(0, semFotoLimite).forEach(p => {
     const idx = catalogData.indexOf(p);
     html += `<div class="dup-item"><span><span class="sr-code" style="color:var(--sub);font-size:11px;">${escapeHtmlLocal(p.codigo)}</span> — ${escapeHtmlLocal(p.nome)}</span>
-      <label class="btn-ghost" style="cursor:pointer;">📷 Anexar foto<input type="file" accept="image/*" class="semFotoInput" data-idx="${idx}" style="display:none;"></label></div>`;
+      <label class="btn-ghost" style="cursor:pointer;">📷 Anexar foto<input type="file" accept="image/*" class="semFotoInput" data-idx="${idx}" style="display:none;"></label><button class="btn-ghost doBancoBtn" data-code="${escapeHtmlLocal(p.codigo)}">🖼️ Do banco</button></div>`;
   });
   if (pendentes.length > semFotoLimite) html += `<div style="margin-top:6px;"><a href="#" id="maisSemFoto">mostrar mais ${Math.min(SEM_FOTO_POR_PAGINA, pendentes.length - semFotoLimite)}…</a></div>`;
   html += '</div>';
@@ -1436,12 +1484,29 @@ document.getElementById('npNome').addEventListener('input', ()=>{
   clearTimeout(avisoDupTimer);
   avisoDupTimer = setTimeout(renderAvisoDuplicadoNoFormulario, 200);
 });
-document.getElementById('npFoto').addEventListener('change', ()=>{
-  const file = document.getElementById('npFoto').files[0];
+let fotoBancoDoFormulario = null; // foto escolhida no banco de imagens para o produto do formulário
+function mostrarPreviewFotoFormulario(blob){
   const img = document.getElementById('npFotoPreview');
   if (img.src) URL.revokeObjectURL(img.src);
-  if (file){ img.src = URL.createObjectURL(file); img.style.display = 'block'; }
+  if (blob){ img.src = URL.createObjectURL(blob); img.style.display = 'block'; }
   else { img.removeAttribute('src'); img.style.display = 'none'; }
+}
+document.getElementById('npFoto').addEventListener('change', ()=>{
+  fotoBancoDoFormulario = null;
+  document.getElementById('npFotoInfo').textContent = '';
+  mostrarPreviewFotoFormulario(document.getElementById('npFoto').files[0] || null);
+});
+document.getElementById('npFotoBancoBtn').addEventListener('click', ()=>{
+  abrirSeletorBanco({
+    titulo: 'Foto para o produto' + (document.getElementById('npNome').value.trim() ? ': ' + document.getElementById('npNome').value.trim() : ''),
+    nomeProduto: document.getElementById('npNome').value,
+    aoEscolher: (blob, registro) => {
+      document.getElementById('npFoto').value = '';
+      fotoBancoDoFormulario = blob;
+      mostrarPreviewFotoFormulario(blob);
+      document.getElementById('npFotoInfo').textContent = registro ? `Do banco: ${registro.nomeArquivo}` : '';
+    },
+  });
 });
 
 async function abrirFormularioProduto(codigoParaEditar){
@@ -1492,7 +1557,9 @@ document.getElementById('npSalvarBtn').addEventListener('click', async ()=>{
   const nome = document.getElementById('npNome').value.trim();
   const desc = document.getElementById('npDesc').value.trim();
   const espec = document.getElementById('npEspec').value.trim();
-  let fotoFile = document.getElementById('npFoto').files[0] || null;
+  const fotoDoComputador = document.getElementById('npFoto').files[0] || null;
+  let fotoFile = fotoDoComputador || fotoBancoDoFormulario || null;
+  let fotoVeioDoBanco = !fotoDoComputador && !!fotoBancoDoFormulario;
   if (!codigo || !nome){
     alert('Preencha ao menos o código e o nome do produto.');
     return;
@@ -1510,7 +1577,7 @@ document.getElementById('npSalvarBtn').addEventListener('click', async ()=>{
       const match = (!item || !item.temFoto) && bancoImagensIndice.length ? buscarImagemNoBancoParaProduto(nome) : null;
       if (match && match.tipo === 'exato'){
         fotoDoBanco = await hidratarImagemDoBanco(match.slug).catch(()=>null);
-        if (fotoDoBanco){ fotoFile = fotoDoBanco; log(`📸 Usando a foto "${match.nomeArquivo}" do banco de imagens.`); }
+        if (fotoDoBanco){ fotoFile = fotoDoBanco; fotoVeioDoBanco = true; log(`📸 Usando a foto "${match.nomeArquivo}" do banco de imagens.`); }
       }
     }
 
@@ -1530,7 +1597,7 @@ document.getElementById('npSalvarBtn').addEventListener('click', async ()=>{
       }
       if (fotoFile){
         window.__imageInputs[codigo] = fotoFile;
-        await salvarFotoNoCatalogo(codigo, fotoFile);
+        await salvarFotoNoCatalogo(codigo, fotoFile, {doBanco: fotoVeioDoBanco});
       }
     } else {
       // Criação de produto novo: código e nome não podem repetir, e a foto é obrigatória.
@@ -1554,7 +1621,7 @@ document.getElementById('npSalvarBtn').addEventListener('click', async ()=>{
       catalogData.push(novoItem);
       catalogoAlteradoLocal.add(chaveCodigo(codigo));
       window.__imageInputs[codigo] = fotoFile;
-      await salvarFotoNoCatalogo(codigo, fotoFile); // marca temFoto=true e salva o catálogo
+      await salvarFotoNoCatalogo(codigo, fotoFile, {doBanco: fotoVeioDoBanco}); // marca temFoto=true e salva o catálogo
       if (!novoItem.temFoto){
         // Foto não gravou: não deixa o produto entrar sem foto.
         catalogData = catalogData.filter(p => p !== novoItem);
@@ -2729,7 +2796,10 @@ function normalizarCodigoArquivo(nomeArquivo){
 }
 
 function onBancoImagensSelecionado(e){
-  const files = Array.from(e.target.files || []).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name));
+  processarArquivosParaBanco(Array.from(e.target.files || []));
+}
+function processarArquivosParaBanco(lista){
+  const files = lista.filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name));
   const wrap = document.getElementById('fotoPastaPreviewWrap');
   if (files.length === 0){
     bancoImportPendente = null;
@@ -2828,15 +2898,11 @@ async function confirmarImportacaoBancoImagens(){
     await new Promise(r => setTimeout(r, 0));
     try{
       const { blob } = await redimensionarImagem(a.file, 900, 0.85);
-      const base64 = await fileParaBase64(blob);
-      await storageSet('banco_imagem:' + a.slug, {base64});
-      const idxIndice = bancoImagensIndice.findIndex(x => x.slug === a.slug);
-      const registro = { slug: a.slug, nomeArquivo: a.nomeArquivo };
-      if (idxIndice === -1) bancoImagensIndice.push(registro); else bancoImagensIndice[idxIndice] = registro;
+      await gravarImagemNoBanco(a.slug, blob, a.nomeArquivo);
 
       if (a.match && checados.has(i)){
         window.__imageInputs[a.match.codigo] = blob;
-        await salvarFotoNoCatalogo(a.match.codigo, blob);
+        await salvarFotoNoCatalogo(a.match.codigo, blob, {doBanco:true});
         delete window.__sugestoesBancoPendentes[a.match.codigo];
         anexadas++;
       }
@@ -2844,8 +2910,9 @@ async function confirmarImportacaoBancoImagens(){
       log(`Aviso: não consegui salvar "${a.nomeArquivo}" no banco (${err.message}).`);
     }
   }
-  await storageSet('banco_imagens_indice', bancoImagensIndice);
+  await salvarIndiceBanco();
   atualizarStatusBancoImagens();
+  renderGaleria();
 
   log(`Banco de imagens atualizado: ${arquivos.length} imagem(ns) salva(s), ${anexadas} já anexada(s) direto ao produto correspondente.`);
   bancoImportPendente = null;
@@ -2902,7 +2969,7 @@ document.getElementById('sincronizarBancoBtn').addEventListener('click', ()=>{
       const blob = await hidratarImagemDoBanco(s.match.slug);
       if (!blob){ log(`Aviso: não consegui carregar "${s.match.nomeArquivo}" do banco.`); continue; }
       window.__imageInputs[s.produto.codigo] = blob;
-      await salvarFotoNoCatalogo(s.produto.codigo, blob);
+      await salvarFotoNoCatalogo(s.produto.codigo, blob, {doBanco:true});
       anexadas++;
     }
     log(`Sincronização com o banco de imagens: ${anexadas} produto(s) atualizado(s).`);
@@ -3398,6 +3465,257 @@ document.getElementById('baixarDoPreviewBtn').addEventListener('click', ()=>{
   baixarBlobProposta(window.__ultimoBlobProposta.blob, window.__ultimoBlobProposta.nomeDownload);
 });
 
+// ---------- Banco de imagens: galeria dentro do app e seletor "Do banco" ----------
+// Cada imagem: "banco_imagem:{slug}" (até ~900px, a que vai pro documento) + "banco_mini:{slug}"
+// (~220px, só para mostrar a galeria rápido). O índice "banco_imagens_indice" é relido do servidor
+// antes de gravar, como o catálogo, para duas pessoas subindo fotos não apagarem as uma da outra.
+const bancoRemovidosLocal = new Set();
+async function salvarIndiceBanco(){
+  let doServidor = null;
+  try{ doServidor = await storageGet('banco_imagens_indice'); }catch(err){}
+  if (Array.isArray(doServidor)){
+    const porSlug = new Map(doServidor.map(r => [r.slug, r]));
+    bancoImagensIndice.forEach(r => porSlug.set(r.slug, r));
+    bancoRemovidosLocal.forEach(s => porSlug.delete(s));
+    bancoImagensIndice = [...porSlug.values()];
+  }
+  await storageSet('banco_imagens_indice', bancoImagensIndice);
+  bancoRemovidosLocal.clear();
+}
+async function gravarImagemNoBanco(slug, blob, nomeArquivo){
+  await storageSet('banco_imagem:' + slug, {base64: await fileParaBase64(blob)});
+  try{
+    const { blob: mini } = await redimensionarImagem(blob, 220, 0.7);
+    await storageSet('banco_mini:' + slug, {base64: await fileParaBase64(mini)});
+  }catch(err){ /* sem miniatura: a galeria gera depois */ }
+  const registro = { slug, nomeArquivo };
+  const i = bancoImagensIndice.findIndex(x => x.slug === slug);
+  if (i === -1) bancoImagensIndice.push(registro); else bancoImagensIndice[i] = registro;
+}
+// Guarda uma imagem avulsa (ex.: foto anexada a um produto) no banco. Devolve o registro.
+async function adicionarAoBanco(blob, nomeArquivo){
+  const slug = slugify(nomeAmigavelDoArquivo(nomeArquivo)) + '-' + blob.size;
+  if (!bancoImagensIndice.some(r => r.slug === slug)){
+    await gravarImagemNoBanco(slug, blob, nomeArquivo);
+    await salvarIndiceBanco();
+    atualizarStatusBancoImagens();
+    if (etapaAtual === 'imagens') renderGaleria();
+  }
+  return bancoImagensIndice.find(r => r.slug === slug);
+}
+async function excluirImagemDoBanco(slug){
+  const reg = bancoImagensIndice.find(r => r.slug === slug);
+  if (!reg || !confirm(`Apagar "${reg.nomeArquivo}" do banco de imagens?\n\nProdutos que já usam esta foto continuam com ela.`)) return;
+  await storageDelete('banco_imagem:' + slug);
+  await storageDelete('banco_mini:' + slug);
+  bancoImagensIndice = bancoImagensIndice.filter(r => r.slug !== slug);
+  bancoRemovidosLocal.add(slug);
+  await salvarIndiceBanco();
+  miniaturasCache.delete(slug);
+  atualizarStatusBancoImagens();
+  renderGaleria();
+}
+
+// Miniaturas: carregam só quando o cartão aparece na tela, 4 por vez.
+const miniaturasCache = new Map(); // slug -> object URL
+const filaMiniaturas = [];
+let miniaturasCarregando = 0;
+async function urlMiniatura(slug){
+  if (miniaturasCache.has(slug)) return miniaturasCache.get(slug);
+  let reg = await storageGet('banco_mini:' + slug).catch(()=>null);
+  let blob = reg && reg.base64 ? base64ParaBlob(reg.base64) : null;
+  if (!blob){
+    // Imagem antiga, de antes das miniaturas: gera agora a partir da grande e guarda.
+    const grande = await hidratarImagemDoBanco(slug).catch(()=>null);
+    if (!grande) return null;
+    blob = (await redimensionarImagem(grande, 220, 0.7)).blob;
+    fileParaBase64(blob).then(b64 => storageSet('banco_mini:' + slug, {base64: b64})).catch(()=>{});
+  }
+  const url = URL.createObjectURL(blob);
+  miniaturasCache.set(slug, url);
+  return url;
+}
+function processarFilaMiniaturas(){
+  while (miniaturasCarregando < 4 && filaMiniaturas.length){
+    const img = filaMiniaturas.shift();
+    if (!img.isConnected) continue;
+    miniaturasCarregando++;
+    urlMiniatura(img.dataset.slug)
+      .then(url => { if (url) img.src = url; else img.alt = 'sem imagem'; })
+      .catch(()=>{ img.alt = 'erro'; })
+      .finally(()=>{ miniaturasCarregando--; processarFilaMiniaturas(); });
+  }
+}
+const observadorMiniaturas = new IntersectionObserver(entradas => {
+  entradas.forEach(e => {
+    if (!e.isIntersecting) return;
+    observadorMiniaturas.unobserve(e.target);
+    filaMiniaturas.push(e.target);
+  });
+  processarFilaMiniaturas();
+}, {rootMargin: '200px'});
+function observarMiniaturas(container){
+  container.querySelectorAll('img[data-slug]').forEach(img => {
+    if (miniaturasCache.has(img.dataset.slug)) img.src = miniaturasCache.get(img.dataset.slug);
+    else observadorMiniaturas.observe(img);
+  });
+}
+
+function filtrarBanco(termo){
+  const t = normalizarTextoMatch(termo);
+  return bancoImagensIndice
+    .filter(r => !t || normalizarTextoMatch(nomeAmigavelDoArquivo(r.nomeArquivo)).includes(t))
+    .sort((a, b) => a.nomeArquivo.localeCompare(b.nomeArquivo, 'pt-BR'));
+}
+function cartaoFoto(r, extra){
+  return `<div class="foto-card ${extra && extra.escolher ? 'escolher' : ''}" data-slug="${escapeHtmlLocal(r.slug)}" title="${escapeHtmlLocal(r.nomeArquivo)}">
+    <img data-slug="${escapeHtmlLocal(r.slug)}" alt="">
+    <div class="nm">${escapeHtmlLocal(nomeAmigavelDoArquivo(r.nomeArquivo))}</div>
+    ${extra && extra.tag ? `<div class="tag ${extra.tag === 'parecido' ? 'par' : ''}">${extra.tag === 'exato' ? '✓ mesmo nome do produto' : '≈ nome parecido'}</div>` : ''}
+    ${extra && extra.excluir ? `<button class="btn-ghost del" data-slug="${escapeHtmlLocal(r.slug)}" title="Apagar do banco">🗑</button>` : ''}
+  </div>`;
+}
+
+// Galeria (página 🖼️ Imagens)
+const GALERIA_POR_PAGINA = 60;
+let galeriaLimite = GALERIA_POR_PAGINA;
+function renderGaleria(){
+  const wrap = document.getElementById('galeriaWrap');
+  const lista = filtrarBanco(document.getElementById('galeriaBusca').value);
+  if (bancoImagensIndice.length === 0){
+    wrap.innerHTML = '<div class="hint">O banco ainda está vazio. Arraste a pasta de fotos para a área acima — é feito uma vez só.</div>';
+    document.getElementById('galeriaMais').innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = lista.slice(0, galeriaLimite).map(r => cartaoFoto(r, {excluir:true})).join('') || '<div class="hint">Nenhuma imagem com esse nome.</div>';
+  const mais = document.getElementById('galeriaMais');
+  mais.innerHTML = lista.length > galeriaLimite ? `<button class="btn-ghost" id="galeriaMaisBtn">Mostrar mais (${lista.length - galeriaLimite} restantes)</button>` : '';
+  const btnMais = document.getElementById('galeriaMaisBtn');
+  if (btnMais) btnMais.addEventListener('click', ()=>{ galeriaLimite += GALERIA_POR_PAGINA; renderGaleria(); });
+  wrap.querySelectorAll('.del').forEach(b => b.addEventListener('click', ()=>excluirImagemDoBanco(b.dataset.slug)));
+  observarMiniaturas(wrap);
+}
+document.getElementById('galeriaBusca').addEventListener('input', ()=>{ galeriaLimite = GALERIA_POR_PAGINA; renderGaleria(); });
+document.getElementById('bancoArquivosInput').addEventListener('change', e => processarArquivosParaBanco(Array.from(e.target.files || [])));
+
+// Arrastar e soltar: aceita arquivos soltos e pastas inteiras (com subpastas).
+async function arquivosDoArraste(dataTransfer){
+  const entradas = [...(dataTransfer.items || [])].map(it => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+  if (!entradas.length) return [...(dataTransfer.files || [])];
+  const arquivos = [];
+  async function ler(entrada){
+    if (entrada.isFile){
+      arquivos.push(await new Promise((ok, erro) => entrada.file(ok, erro)));
+    } else if (entrada.isDirectory){
+      const leitor = entrada.createReader();
+      let lote;
+      do {
+        lote = await new Promise((ok, erro) => leitor.readEntries(ok, erro));
+        for (const filho of lote) await ler(filho);
+      } while (lote.length);
+    }
+  }
+  for (const e of entradas) await ler(e);
+  return arquivos;
+}
+(function(){
+  const zona = document.getElementById('bancoDrop');
+  ['dragenter', 'dragover'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.add('arrastando'); }));
+  ['dragleave', 'drop'].forEach(ev => zona.addEventListener(ev, () => zona.classList.remove('arrastando')));
+  zona.addEventListener('drop', async e => {
+    e.preventDefault();
+    document.getElementById('fotoPastaPreviewWrap').innerHTML = '<div class="hint">Lendo os arquivos...</div>';
+    processarArquivosParaBanco(await arquivosDoArraste(e.dataTransfer));
+  });
+})();
+
+// Seletor "Do banco": abre a galeria em modo escolha, com as fotos de nome parecido primeiro.
+let seletorBanco = null; // {nomeProduto, aoEscolher, limite}
+function abrirSeletorBanco(opcoes){
+  seletorBanco = {...opcoes, limite: GALERIA_POR_PAGINA};
+  document.getElementById('bancoPickerTitulo').textContent = opcoes.titulo || 'Escolher foto do banco';
+  document.getElementById('bancoPickerBusca').value = '';
+  document.getElementById('bancoPickerArquivo').value = '';
+  document.getElementById('bancoPickerModal').style.display = 'flex';
+  renderSeletorBanco();
+  document.getElementById('bancoPickerBusca').focus();
+}
+function fecharSeletorBanco(){
+  document.getElementById('bancoPickerModal').style.display = 'none';
+  seletorBanco = null;
+}
+function renderSeletorBanco(){
+  if (!seletorBanco) return;
+  const grid = document.getElementById('bancoPickerGrid');
+  const termo = document.getElementById('bancoPickerBusca').value;
+  if (bancoImagensIndice.length === 0){
+    grid.innerHTML = '<div class="hint">O banco de imagens está vazio. Use "💻 Do computador" acima, ou envie a pasta de fotos na página 🖼️ Imagens.</div>';
+    document.getElementById('bancoPickerMais').innerHTML = '';
+    return;
+  }
+  let sugeridas = [];
+  if (!termo.trim() && seletorBanco.nomeProduto){
+    sugeridas = bancoImagensIndice
+      .map(r => ({r, tag: classificarMatchTexto(nomeAmigavelDoArquivo(r.nomeArquivo), seletorBanco.nomeProduto)}))
+      .filter(x => x.tag)
+      .sort((a, b) => (a.tag === 'exato' ? 0 : 1) - (b.tag === 'exato' ? 0 : 1));
+  }
+  const jaSugeridas = new Set(sugeridas.map(x => x.r.slug));
+  const resto = filtrarBanco(termo).filter(r => !jaSugeridas.has(r.slug));
+  let html = '';
+  if (sugeridas.length) html += `<div class="hint" style="grid-column:1/-1;font-weight:bold;color:var(--ink);">Sugeridas para "${escapeHtmlLocal(seletorBanco.nomeProduto)}"</div>` + sugeridas.map(x => cartaoFoto(x.r, {escolher:true, tag:x.tag})).join('');
+  if (sugeridas.length && resto.length) html += '<div class="hint" style="grid-column:1/-1;font-weight:bold;color:var(--ink);margin-top:6px;">Todas as imagens</div>';
+  html += resto.slice(0, seletorBanco.limite).map(r => cartaoFoto(r, {escolher:true})).join('');
+  grid.innerHTML = html || '<div class="hint">Nenhuma imagem com esse nome.</div>';
+  const mais = document.getElementById('bancoPickerMais');
+  mais.innerHTML = resto.length > seletorBanco.limite ? `<button class="btn-ghost" id="bancoPickerMaisBtn">Mostrar mais (${resto.length - seletorBanco.limite} restantes)</button>` : '';
+  const btnMais = document.getElementById('bancoPickerMaisBtn');
+  if (btnMais) btnMais.addEventListener('click', ()=>{ seletorBanco.limite += GALERIA_POR_PAGINA; renderSeletorBanco(); });
+  grid.querySelectorAll('.foto-card.escolher').forEach(card => card.addEventListener('click', async ()=>{
+    const op = seletorBanco;
+    if (!op) return;
+    const registro = bancoImagensIndice.find(r => r.slug === card.dataset.slug);
+    card.style.opacity = '.5';
+    const blob = await hidratarImagemDoBanco(card.dataset.slug).catch(()=>null);
+    if (!blob){ card.style.opacity = ''; alert('Não consegui carregar essa imagem do banco.'); return; }
+    fecharSeletorBanco();
+    await op.aoEscolher(blob, registro, {doBanco:true});
+  }));
+  observarMiniaturas(grid);
+}
+document.getElementById('bancoPickerBusca').addEventListener('input', ()=>{ if (seletorBanco){ seletorBanco.limite = GALERIA_POR_PAGINA; renderSeletorBanco(); } });
+document.getElementById('bancoPickerFechar').addEventListener('click', fecharSeletorBanco);
+document.getElementById('bancoPickerModal').addEventListener('click', e => { if (e.target.id === 'bancoPickerModal') fecharSeletorBanco(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && seletorBanco) fecharSeletorBanco(); });
+document.getElementById('bancoPickerArquivo').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  const op = seletorBanco;
+  if (!file || !op) return;
+  fecharSeletorBanco();
+  await op.aoEscolher(file, {nomeArquivo: file.name}, {doBanco:false});
+});
+
+// Botão "🖼️ Do banco" de qualquer lista de produtos (busca, incluídos, sem foto).
+document.addEventListener('click', e => {
+  const btn = e.target.closest && e.target.closest('.doBancoBtn');
+  if (!btn) return;
+  const codigo = btn.dataset.code;
+  const prod = catalogData.find(p => p.codigo === codigo);
+  if (!prod) return;
+  abrirSeletorBanco({
+    titulo: `Foto para ${prod.codigo} — ${prod.nome}`,
+    nomeProduto: prod.nome,
+    aoEscolher: async (blob, registro, origem) => {
+      window.__imageInputs[codigo] = blob;
+      delete window.__sugestoesBancoPendentes[codigo];
+      await salvarFotoNoCatalogo(codigo, blob, {doBanco: origem.doBanco});
+      renderSearchResults();
+      renderIncludedList();
+      if (document.getElementById('semFotoWrap').dataset.aberto === '1') renderProdutosSemFoto();
+    },
+  });
+});
+
 // ---------- Etapas: uma parte da proposta por vez ----------
 // Início (abrir/criar) → 1 Cliente → 2 Valores → 3 Produtos → 4 Gerar. Configurações (modelos,
 // planilha do catálogo, banco de imagens) fica à parte: é feito uma vez e vale para a equipe.
@@ -3405,6 +3723,7 @@ document.getElementById('baixarDoPreviewBtn').addEventListener('click', ()=>{
 const ORDEM_ETAPAS = ['inicio', 'cliente', 'valores', 'produtos', 'gerar'];
 let etapaAtual = 'inicio';
 let etapaAntesDaConfig = 'inicio';
+const ETAPAS_EXTRAS = ['imagens', 'config']; // páginas fora da sequência da proposta
 
 function produtosSemFotoNaProposta(){
   return selectedCodes.filter(c => {
@@ -3454,7 +3773,7 @@ function atualizarStatusEtapas(){
   modeloResumo.classList.toggle('ok', s.config.ok);
   const catResumo = document.getElementById('catalogResumo');
   if (catResumo) catResumo.textContent = catalogData.length
-    ? `Catálogo da equipe: ${catalogData.length} produto(s). Para importar uma planilha nova do catálogo ou subir fotos em lote, vá em ⚙️ Configurações.`
+    ? `Catálogo da equipe: ${catalogData.length} produto(s). Fotos: botão 🖼️ Do banco em cada produto, ou a página 🖼️ Imagens para subir várias. Planilha do catálogo: ⚙️ Configurações.`
     : 'O catálogo ainda está vazio — importe a planilha do catálogo em ⚙️ Configurações.';
   if (etapaAtual === 'gerar') renderResumoGerar(s);
 }
@@ -3469,7 +3788,7 @@ function renderResumoGerar(s){
   document.querySelectorAll('#resumoGerar .irParaEtapaBtn').forEach(b => b.addEventListener('click', () => irEtapa(b.dataset.etapa)));
 }
 function irEtapa(nome){
-  if (nome === 'config' && etapaAtual !== 'config') etapaAntesDaConfig = etapaAtual;
+  if (ETAPAS_EXTRAS.includes(nome) && !ETAPAS_EXTRAS.includes(etapaAtual)) etapaAntesDaConfig = etapaAtual;
   etapaAtual = nome;
   document.querySelectorAll('section.etapa').forEach(sec => sec.classList.toggle('ativa', sec.dataset.etapa === nome));
   document.querySelectorAll('#etapasNav button').forEach(btn => btn.classList.toggle('ativa', btn.dataset.etapa === nome));
@@ -3477,7 +3796,7 @@ function irEtapa(nome){
   const voltar = document.getElementById('etapaVoltarBtn');
   const proxima = document.getElementById('etapaProximaBtn');
   voltar.disabled = nome === 'inicio';
-  if (nome === 'config'){
+  if (ETAPAS_EXTRAS.includes(nome)){
     proxima.textContent = 'Voltar à proposta →';
   } else if (pos === ORDEM_ETAPAS.length - 1){
     proxima.textContent = 'Gerar proposta (.docx)';
@@ -3485,17 +3804,18 @@ function irEtapa(nome){
     proxima.textContent = 'Próximo: ' + {inicio:'Cliente', cliente:'Valores', valores:'Produtos', produtos:'Conferir e gerar'}[nome] + ' →';
   }
   atualizarStatusEtapas();
+  if (nome === 'imagens'){ galeriaLimite = GALERIA_POR_PAGINA; renderGaleria(); atualizarStatusBancoImagens(); }
   window.scrollTo({top:0, behavior:'smooth'});
   try{ sessionStorage.setItem('etapaAtual', nome); }catch(err){}
 }
 document.querySelectorAll('#etapasNav button').forEach(btn => btn.addEventListener('click', () => irEtapa(btn.dataset.etapa)));
 document.getElementById('etapaVoltarBtn').addEventListener('click', ()=>{
-  if (etapaAtual === 'config') return irEtapa(etapaAntesDaConfig);
+  if (ETAPAS_EXTRAS.includes(etapaAtual)) return irEtapa(etapaAntesDaConfig);
   const pos = ORDEM_ETAPAS.indexOf(etapaAtual);
   if (pos > 0) irEtapa(ORDEM_ETAPAS[pos - 1]);
 });
 document.getElementById('etapaProximaBtn').addEventListener('click', ()=>{
-  if (etapaAtual === 'config') return irEtapa(etapaAntesDaConfig === 'config' ? 'inicio' : etapaAntesDaConfig);
+  if (ETAPAS_EXTRAS.includes(etapaAtual)) return irEtapa(ETAPAS_EXTRAS.includes(etapaAntesDaConfig) ? 'inicio' : etapaAntesDaConfig);
   const pos = ORDEM_ETAPAS.indexOf(etapaAtual);
   if (pos === ORDEM_ETAPAS.length - 1) return document.getElementById('generateBtn').click();
   irEtapa(ORDEM_ETAPAS[pos + 1]);
@@ -3509,7 +3829,7 @@ let statusEtapasTimer = null;
 (function(){
   let salva = null;
   try{ salva = sessionStorage.getItem('etapaAtual'); }catch(err){}
-  irEtapa(salva && (ORDEM_ETAPAS.includes(salva) || salva === 'config') ? salva : 'inicio');
+  irEtapa(salva && (ORDEM_ETAPAS.includes(salva) || ETAPAS_EXTRAS.includes(salva)) ? salva : 'inicio');
 })();
 </script>
 </body>
