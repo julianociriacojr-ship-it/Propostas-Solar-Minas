@@ -81,6 +81,7 @@
   .galeria .foto-card{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative;}
   .galeria .foto-card img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#f1ece5;display:block;}
   .galeria .foto-card .nm{font-size:11px;padding:5px 6px;line-height:1.3;word-break:break-word;flex:1;}
+  .galeria .foto-card .ren{position:absolute;top:4px;right:38px;padding:2px 6px;font-size:11px;background:rgba(255,255,255,.9);}
   .galeria .foto-card .del{position:absolute;top:4px;right:4px;padding:2px 6px;font-size:11px;background:rgba(255,255,255,.9);}
   .galeria .foto-card.escolher{cursor:pointer;}
   .galeria .foto-card.escolher:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);}
@@ -3470,17 +3471,20 @@ document.getElementById('baixarDoPreviewBtn').addEventListener('click', ()=>{
 // (~220px, só para mostrar a galeria rápido). O índice "banco_imagens_indice" é relido do servidor
 // antes de gravar, como o catálogo, para duas pessoas subindo fotos não apagarem as uma da outra.
 const bancoRemovidosLocal = new Set();
+const bancoAlteradosLocal = new Set(); // slugs adicionados ou renomeados neste navegador
 async function salvarIndiceBanco(){
   let doServidor = null;
   try{ doServidor = await storageGet('banco_imagens_indice'); }catch(err){}
   if (Array.isArray(doServidor)){
     const porSlug = new Map(doServidor.map(r => [r.slug, r]));
-    bancoImagensIndice.forEach(r => porSlug.set(r.slug, r));
+    // Só o que este navegador mudou vai por cima — assim não desfaz renomeação feita por outra pessoa.
+    bancoImagensIndice.forEach(r => { if (bancoAlteradosLocal.has(r.slug) || !porSlug.has(r.slug)) porSlug.set(r.slug, r); });
     bancoRemovidosLocal.forEach(s => porSlug.delete(s));
     bancoImagensIndice = [...porSlug.values()];
   }
   await storageSet('banco_imagens_indice', bancoImagensIndice);
   bancoRemovidosLocal.clear();
+  bancoAlteradosLocal.clear();
 }
 async function gravarImagemNoBanco(slug, blob, nomeArquivo){
   await storageSet('banco_imagem:' + slug, {base64: await fileParaBase64(blob)});
@@ -3491,6 +3495,7 @@ async function gravarImagemNoBanco(slug, blob, nomeArquivo){
   const registro = { slug, nomeArquivo };
   const i = bancoImagensIndice.findIndex(x => x.slug === slug);
   if (i === -1) bancoImagensIndice.push(registro); else bancoImagensIndice[i] = registro;
+  bancoAlteradosLocal.add(slug);
 }
 // Guarda uma imagem avulsa (ex.: foto anexada a um produto) no banco. Devolve o registro.
 async function adicionarAoBanco(blob, nomeArquivo){
@@ -3502,6 +3507,26 @@ async function adicionarAoBanco(blob, nomeArquivo){
     if (etapaAtual === 'imagens') renderGaleria();
   }
   return bancoImagensIndice.find(r => r.slug === slug);
+}
+// Renomear muda só o nome mostrado/buscado (o slug, chave da imagem, fica igual). Os produtos têm
+// a própria cópia da foto, então não são afetados.
+async function renomearImagemDoBanco(slug){
+  const reg = bancoImagensIndice.find(r => r.slug === slug);
+  if (!reg) return;
+  const ext = (/\.[^.]+$/.exec(reg.nomeArquivo) || [''])[0];
+  const atual = reg.nomeArquivo.slice(0, reg.nomeArquivo.length - ext.length);
+  const novo = (prompt('Novo nome da imagem (dica: use o nome do produto, assim o app sugere a foto certa):', atual) || '').trim();
+  if (!novo || novo === atual) return;
+  reg.nomeArquivo = novo.replace(/[\\/:*?"<>|]+/g, ' ').trim() + ext;
+  bancoAlteradosLocal.add(slug);
+  try{
+    await salvarIndiceBanco();
+    log(`Imagem renomeada: "${atual}" → "${novo}".`);
+  }catch(err){
+    reg.nomeArquivo = atual + ext;
+    alert('Não consegui salvar o novo nome (' + err.message + '). Tente de novo.');
+  }
+  renderGaleria();
 }
 async function excluirImagemDoBanco(slug){
   const reg = bancoImagensIndice.find(r => r.slug === slug);
@@ -3572,6 +3597,7 @@ function cartaoFoto(r, extra){
     <img data-slug="${escapeHtmlLocal(r.slug)}" alt="">
     <div class="nm">${escapeHtmlLocal(nomeAmigavelDoArquivo(r.nomeArquivo))}</div>
     ${extra && extra.tag ? `<div class="tag ${extra.tag === 'parecido' ? 'par' : ''}">${extra.tag === 'exato' ? '✓ mesmo nome do produto' : '≈ nome parecido'}</div>` : ''}
+    ${extra && extra.excluir ? `<button class="btn-ghost ren" data-slug="${escapeHtmlLocal(r.slug)}" title="Renomear">✏️</button>` : ''}
     ${extra && extra.excluir ? `<button class="btn-ghost del" data-slug="${escapeHtmlLocal(r.slug)}" title="Apagar do banco">🗑</button>` : ''}
   </div>`;
 }
@@ -3593,6 +3619,7 @@ function renderGaleria(){
   const btnMais = document.getElementById('galeriaMaisBtn');
   if (btnMais) btnMais.addEventListener('click', ()=>{ galeriaLimite += GALERIA_POR_PAGINA; renderGaleria(); });
   wrap.querySelectorAll('.del').forEach(b => b.addEventListener('click', ()=>excluirImagemDoBanco(b.dataset.slug)));
+  wrap.querySelectorAll('.ren').forEach(b => b.addEventListener('click', ()=>renomearImagemDoBanco(b.dataset.slug)));
   observarMiniaturas(wrap);
 }
 document.getElementById('galeriaBusca').addEventListener('input', ()=>{ galeriaLimite = GALERIA_POR_PAGINA; renderGaleria(); });

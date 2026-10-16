@@ -89,7 +89,7 @@ Ao importar a PCC, o app lê também a coluna **Custo**, o **MKP** de cada item 
 
 ## Banco de imagens (fotos dos produtos)
 
-O banco de imagens é uma galeria dentro do app (página **🖼️ Imagens**), guardada no servidor para toda a equipe. Envie a pasta de fotos uma vez arrastando para a área da página (aceita pasta com subpastas) ou pelos botões; depois a foto de qualquer produto é escolhida pelo botão **🖼️ Do banco** (na busca, em Produtos incluídos, em Produtos sem foto e no + Novo produto), com as fotos de nome parecido aparecendo primeiro. Foto anexada do computador a um produto entra no banco sozinha, com o nome do produto. A galeria tem busca pelo nome e 🗑 para apagar (o produto que já usa a foto continua com ela). Cada imagem tem uma miniatura (`banco_mini:...`) para a galeria abrir rápido.
+O banco de imagens é uma galeria dentro do app (página **🖼️ Imagens**), guardada no servidor para toda a equipe. Envie a pasta de fotos uma vez arrastando para a área da página (aceita pasta com subpastas) ou pelos botões; depois a foto de qualquer produto é escolhida pelo botão **🖼️ Do banco** (na busca, em Produtos incluídos, em Produtos sem foto e no + Novo produto), com as fotos de nome parecido aparecendo primeiro. Foto anexada do computador a um produto entra no banco sozinha, com o nome do produto. A galeria tem busca pelo nome, ✏️ para renomear e 🗑 para apagar. Renomear ou apagar não mexe nos produtos: cada produto guarda a própria cópia da foto. Vale renomear com o nome do produto, que é o que o app usa para sugerir a foto certa. Cada imagem tem uma miniatura (`banco_mini:...`) para a galeria abrir rápido.
 
 Detalhes do casamento automático:
 
