@@ -17,7 +17,6 @@ APP_DIR=/opt/propostas
 DATA_DIR=/var/lib/propostas
 BACKUP_DIR=/var/backups/propostas
 SVC_USER=propostas
-PORT=3000
 
 say(){ printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
 die(){ printf '\n\033[1;31mERRO: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -28,7 +27,7 @@ command -v apt-get >/dev/null || die "este script é para Ubuntu/Debian."
 say "Instalando pacotes básicos"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q curl git ca-certificates gnupg debian-keyring debian-archive-keyring apt-transport-https
+apt-get install -y -q curl git iproute2 ca-certificates gnupg debian-keyring debian-archive-keyring apt-transport-https
 
 # Node.js 22 (LTS)
 NODE_MAJOR=0
@@ -71,6 +70,15 @@ chmod 750 "$DATA_DIR"
 chmod 700 "$BACKUP_DIR"
 
 say "Configurando o serviço"
+# Porta interna (só acessível pela própria VPS; o público entra pelo Caddy na 443).
+# Mantém a da instalação anterior; na primeira vez procura uma livre a partir da 3100,
+# para não disputar com outros apps já instalados (bots, painéis etc.).
+PORT="$(sed -n 's/^Environment=PORT=//p' /etc/systemd/system/propostas.service 2>/dev/null || true)"
+if [ -z "$PORT" ]; then
+  PORT=3100
+  while ss -ltn | awk '{print $4}' | grep -qE "[:.]$PORT\$"; do PORT=$((PORT + 1)); done
+fi
+echo "Porta interna: $PORT"
 cat > /etc/systemd/system/propostas.service <<EOF
 [Unit]
 Description=Gerador de Propostas Solar Minas
