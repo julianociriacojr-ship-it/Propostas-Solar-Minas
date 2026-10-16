@@ -220,6 +220,7 @@
     </table>
     <div class="row-actions">
       <button class="btn-ghost" id="addRow">+ Adicionar item</button>
+      <button class="btn-ghost" id="addBlocoBtn" title="Cria um bloco novo (ex.: Faturamento direto), com tabela própria no documento">+ Novo bloco</button>
       <button class="btn-ghost" id="pasteBtn">Colar do Excel</button>
     </div>
     <div class="hint">🔒 Custo, MKP e % de negociação são internos: servem só para calcular o Vlr. Unit. (Custo × MKP ÷ índice do bloco) e não aparecem no documento do cliente. Alterar o Vlr. Unit. de um item com custo recalcula o MKP dele.</div>
@@ -1787,8 +1788,21 @@ function addPccDividerRow(nome, ehPrincipal, indice){
   tr.dataset.blocoNome = nome;
   tr.dataset.indice = indice > 0 ? String(indice) : '1';
   tr.innerHTML = `<td colspan="8">📦 <input type="text" class="divider-nome-input" value="${escapeHtmlLocal(nome)}" placeholder="Nome do bloco">${ehPrincipal ? ' <span class="hint" style="font-weight:normal;">(principal)</span>' : ''}
+    <button class="btn-ghost addItemBlocoBtn" type="button" style="padding:3px 9px;font-size:12px;margin-left:6px;" title="Adiciona uma linha no fim deste bloco">+ Item neste bloco</button>
+    ${ehPrincipal ? '' : '<button class="btn-ghost delBlocoBtn" type="button" style="padding:3px 8px;font-size:12px;" title="Remover este bloco e os itens dele">✕ bloco</button>'}
     <span class="neg-wrap" title="Interno: não aparece para o cliente. Índice da PCC = 1 − negociação (10% → 0,90). Vlr. Unit. = Custo × MKP ÷ índice.">🔒 Negociação <input type="text" class="divider-neg-input" value="${percentualDeIndice(parseFloat(tr.dataset.indice))}"> % <span class="neg-indice">(índice ${formatNumeroInterno(parseFloat(tr.dataset.indice))})</span></span></td>`;
   document.getElementById('pccBody').appendChild(tr);
+  tr.querySelector('.addItemBlocoBtn').addEventListener('click', ()=>inserirLinhaNoBloco(tr));
+  const delBloco = tr.querySelector('.delBlocoBtn');
+  if (delBloco) delBloco.addEventListener('click', ()=>{
+    const linhas = linhasDoBloco(tr);
+    const comConteudo = linhas.filter(l => l.querySelector('.pMat').value.trim()).length;
+    if (comConteudo && !confirm(`Remover o bloco "${tr.dataset.blocoNome}" e os ${comConteudo} item(ns) dele?`)) return;
+    linhas.forEach(l => l.remove());
+    tr.remove();
+    updateTotal();
+    agendarSalvamento();
+  });
   const negInput = tr.querySelector('.divider-neg-input');
   negInput.addEventListener('change', ()=>{
     const pct = parseNumeroFlex(negInput.value);
@@ -1871,7 +1885,43 @@ document.getElementById('novaRevisaoBtn').addEventListener('click', ()=>{
   document.getElementById('log').style.display = 'block';
 });
 document.getElementById('fRevisao').addEventListener('input', atualizarComparativoRevisao);
-document.getElementById('addRow').addEventListener('click', ()=>addPccRow());
+document.getElementById('addRow').addEventListener('click', ()=>{
+  const tr = addPccRow();
+  tr.querySelector('.pMat').focus();
+});
+// Linhas de item de um bloco: as que vêm depois do divisor, até o próximo divisor.
+function linhasDoBloco(divisor){
+  const linhas = [];
+  let el = divisor.nextElementSibling;
+  while (el && !el.classList.contains('pcc-divider')){ linhas.push(el); el = el.nextElementSibling; }
+  return linhas;
+}
+// Nova linha no fim do bloco do divisor (não no fim da tabela).
+function inserirLinhaNoBloco(divisor){
+  const body = document.getElementById('pccBody');
+  const linhas = linhasDoBloco(divisor);
+  const depoisDe = linhas.length ? linhas[linhas.length-1] : divisor;
+  const tr = addPccRow({material:'', qtd:'', un:'un.', vunit:'', vtotal:'', bloco: divisor.dataset.blocoNome});
+  body.insertBefore(tr, depoisDe.nextElementSibling);
+  tr.querySelector('.pMat').focus();
+  updateTotal();
+  return tr;
+}
+document.getElementById('addBlocoBtn').addEventListener('click', ()=>{
+  const body = document.getElementById('pccBody');
+  if (!body.querySelector('tr.pcc-divider')){
+    if (body.querySelector('tr:not(.pcc-divider)')) garantirDivisorPrincipal();
+    else addPccDividerRow('Bloco 1', true, 1);
+  }
+  const nomes = new Set([...body.querySelectorAll('tr.pcc-divider')].map(d => d.dataset.blocoNome));
+  let n = nomes.size + 1;
+  while (nomes.has(`Bloco ${n}`)) n++;
+  const div = addPccDividerRow(`Bloco ${n}`, false, 1);
+  inserirLinhaNoBloco(div);
+  const nomeInput = div.querySelector('.divider-nome-input');
+  nomeInput.focus();
+  nomeInput.select();
+});
 
 // ---------- Importar PCC (.xlsx) — até 3 blocos (Principal + 2 extras) ----------
 document.getElementById('pccFile').addEventListener('change', async (e)=>{

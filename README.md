@@ -76,6 +76,7 @@ Ao importar a PCC, o app lê também a coluna **Custo**, o **MKP** de cada item 
 - **Vlr. Unit. = Custo × MKP ÷ Índice**, a mesma conta da planilha.
 - Mudar o **MKP** de um item recalcula o preço dele; digitar o **Vlr. Unit.** à mão recalcula o MKP.
 - Cada bloco tem o campo **🔒 Negociação %** na faixa do bloco; mudar recalcula todos os itens com custo daquele bloco.
+- Cada bloco tem **+ Item neste bloco** (linha nova no fim daquele bloco) e, exceto o principal, **✕ bloco**. **+ Novo bloco** cria um bloco extra, que vira uma tabela própria no documento.
 - Custo, MKP e negociação ficam salvos na proposta, mas **não vão para o documento do cliente**: a tabela e os blocos do .docx continuam iguais (material, qtd., un., valor unitário e total).
 
 ## Cadastro de produtos: foto obrigatória e sem repetição
