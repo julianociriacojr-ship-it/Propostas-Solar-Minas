@@ -55,6 +55,24 @@ Sem o servidor, abrir o `index.html` direto (ou `python3 -m http.server 8080`) t
 
 As bibliotecas (SheetJS/xlsx 0.18.5, JSZip 3.10.1, docx-preview 0.4.0) ficam em `vendor/`, sem depender de CDN.
 
+## Custo, MKP e negociação (internos)
+
+Ao importar a PCC, o app lê também a coluna **Custo**, o **MKP** de cada item e o **Índice** de cada bloco (a célula ao lado de "Indice" no título do bloco; 0,90 = 10% de negociação). Na tabela do Passo 1:
+
+- **Vlr. Unit. = Custo × MKP ÷ Índice**, a mesma conta da planilha.
+- Mudar o **MKP** de um item recalcula o preço dele; digitar o **Vlr. Unit.** à mão recalcula o MKP.
+- Cada bloco tem o campo **🔒 Negociação %** na faixa do bloco; mudar recalcula todos os itens com custo daquele bloco.
+- Custo, MKP e negociação ficam salvos na proposta, mas **não vão para o documento do cliente**: a tabela e os blocos do .docx continuam iguais (material, qtd., un., valor unitário e total).
+
+## Cadastro de produtos: foto obrigatória e sem repetição
+
+- **+ Novo produto** só salva com foto (ou com uma foto do banco de imagens que bata exato com o nome).
+- Enquanto você digita o nome, o formulário mostra os produtos já cadastrados com nome igual ou parecido, com o botão **Usar este na proposta**. Nome igual (ignorando acento, maiúscula, plural e ordem das palavras) bloqueia o cadastro; parecido pede confirmação. Código repetido é bloqueado sem diferenciar maiúscula.
+- **📷 Produtos sem foto (N)** lista o que ainda falta foto, com anexar direto.
+- **🔍 Procurar duplicados** agrupa produtos com mesmo código ou mesmo nome; **Manter este** junta o grupo num cadastro só (a foto passa para o que ficou e propostas antigas que usavam o código removido passam a usar o que ficou).
+- No modo servidor, o catálogo é relido do banco antes de cada gravação: duas pessoas cadastrando ao mesmo tempo não apagam o cadastro uma da outra.
+- Reimportar a planilha do catálogo pergunta o que fazer com produtos que estão no app mas não na planilha (antes eles sumiam).
+
 ## Banco de imagens (fotos dos produtos)
 
 No Passo 2 (Catálogo), o botão **"🖼️ Banco de imagens"** deixa subir uma pasta inteira de fotos de uma vez, sem precisar renomear nada:

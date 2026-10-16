@@ -34,6 +34,16 @@
   .pcc-grid tr.pcc-divider td{background:#f4ede4;color:#9C3B0F;font-weight:bold;font-size:12px;padding:6px 8px;border-top:1px solid var(--line);}
   .pcc-grid tr.pcc-divider input.divider-nome-input{background:transparent;border:1px dashed transparent;color:#9C3B0F;font-weight:bold;font-size:12px;padding:2px 4px;border-radius:4px;min-width:160px;font-family:inherit;}
   .pcc-grid tr.pcc-divider input.divider-nome-input:hover, .pcc-grid tr.pcc-divider input.divider-nome-input:focus{border-color:#c9a583;background:#fff;outline:none;}
+  /* Colunas internas (custo, MKP, negociação): só pra montar o preço, nunca vão para o documento do cliente */
+  .pcc-grid th.interno{color:#5a6f8a;}
+  .pcc-grid td.interno input{background:#eef3f9;border-color:#cfdbe9;}
+  .pcc-grid tr.pcc-divider input.divider-nome-input{width:auto;}
+  .pcc-grid tr.pcc-divider .neg-wrap{float:right;font-weight:normal;color:#5a6f8a;}
+  .pcc-grid tr.pcc-divider input.divider-neg-input{width:58px;display:inline-block;background:#eef3f9;border:1px solid #cfdbe9;border-radius:4px;padding:2px 4px;font-size:12px;text-align:right;}
+  .dup-aviso{border:1px solid #e3b4a4;background:#fdf1ec;border-radius:6px;padding:8px 10px;margin-top:8px;font-size:13px;}
+  .dup-aviso .dup-item{display:flex;align-items:center;gap:8px;margin-top:4px;}
+  .dup-aviso .dup-item span{flex:1;}
+  .np-foto-preview{max-height:90px;max-width:140px;border:1px solid var(--line);border-radius:6px;margin-top:6px;display:none;}
   button{font-family:inherit;font-size:13px;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;}
   .btn-primary{background:var(--accent);color:#fff;}
   .btn-primary:hover{background:var(--accent-dark);}
@@ -129,13 +139,14 @@
     <input type="file" id="pccFile" accept=".xlsx">
     <div class="file-status" id="pccStatus">Nenhuma PCC importada — preencha manualmente abaixo ou importe o arquivo.</div>
     <table class="pcc-grid" id="pccTable">
-      <thead><tr><th style="width:34%">Material</th><th style="width:9%">Qtd.</th><th style="width:9%">Un.</th><th style="width:16%">Vlr. Unit. (R$)</th><th style="width:16%">Vlr. Total (R$)</th><th></th></tr></thead>
+      <thead><tr><th style="width:29%">Material</th><th style="width:7%">Qtd.</th><th style="width:7%">Un.</th><th class="interno" style="width:12%" title="Interno: não aparece para o cliente">Custo (R$) 🔒</th><th class="interno" style="width:8%" title="Interno: não aparece para o cliente. Vlr. Unit. = Custo × MKP ÷ índice de negociação do bloco">MKP 🔒</th><th style="width:14%">Vlr. Unit. (R$)</th><th style="width:15%">Vlr. Total (R$)</th><th></th></tr></thead>
       <tbody id="pccBody"></tbody>
     </table>
     <div class="row-actions">
       <button class="btn-ghost" id="addRow">+ Adicionar item</button>
       <button class="btn-ghost" id="pasteBtn">Colar do Excel</button>
     </div>
+    <div class="hint">🔒 Custo, MKP e % de negociação são internos: servem só para calcular o Vlr. Unit. (Custo × MKP ÷ índice do bloco) e não aparecem no documento do cliente. Alterar o Vlr. Unit. de um item com custo recalcula o MKP dele.</div>
     <div class="totalrow">Total: R$ <span id="pccTotal">0,00</span></div>
     <div class="hint" id="pccExtenso" style="text-align:right;font-style:italic;"></div>
     <div class="row-actions" style="margin-top:8px;justify-content:space-between;">
@@ -183,19 +194,26 @@
 
     <div class="toolbar" style="justify-content:flex-start;margin-top:14px;margin-bottom:0;">
       <button class="btn-ghost" id="novoProdutoBtn">+ Novo produto</button>
+      <button class="btn-ghost" id="semFotoBtn" style="display:none;">📷 Produtos sem foto</button>
+      <button class="btn-ghost" id="duplicadosBtn" style="display:none;">🔍 Procurar duplicados</button>
       <button class="btn-ghost" id="baixarCatalogoBtn" style="display:none;">⬇ Baixar catálogo atualizado (.xlsx)</button>
     </div>
+    <div id="semFotoWrap"></div>
+    <div id="duplicadosWrap"></div>
     <div class="np-form" id="novoProdutoForm" style="display:none;">
       <div class="hint" id="npFormTitulo" style="font-weight:bold;color:var(--ink);margin-bottom:8px;">Novo produto</div>
       <div class="np-row">
         <input id="npCodigo" placeholder="Código (gerado automático, pode editar)">
         <input id="npNome" placeholder="Nome do produto">
       </div>
+      <div id="npDupAviso"></div>
       <textarea id="npDesc" placeholder="Descrição breve"></textarea>
       <textarea id="npEspec" placeholder="Especificações técnicas"></textarea>
       <div style="margin-top:8px;">
-        <label class="hint" style="text-transform:uppercase;letter-spacing:.04em;">Foto (opcional)</label><br>
+        <label class="hint" id="npFotoLabel" style="text-transform:uppercase;letter-spacing:.04em;">Foto (obrigatória)</label><br>
         <input type="file" id="npFoto" accept="image/*">
+        <div class="hint" id="npFotoInfo"></div>
+        <img id="npFotoPreview" class="np-foto-preview" alt="">
       </div>
       <div class="row-actions" style="margin-top:10px;">
         <button class="btn-primary" id="npSalvarBtn">Salvar produto</button>
@@ -671,6 +689,20 @@ document.getElementById('catalogFile').addEventListener('change', async (e) => {
     if (antigo) baterem.add(chaveComparacao(codigo));
     catalogData.push({codigo, nome:String(r[1]||''), desc:String(r[2]||''), espec:String(r[3]||''), temFoto: antigo ? !!antigo.temFoto : false});
   }
+  // Produtos que existiam no app mas não estão na planilha (ex.: cadastrados pelo "+ Novo produto"):
+  // antes sumiam calados ao reimportar — e acabavam sendo cadastrados de novo.
+  const foraDaPlanilha = [...catalogAntigoPorCodigo.entries()].filter(([k]) => !baterem.has(k)).map(([,p]) => p);
+  if (foraDaPlanilha.length > 0){
+    const exemplos = foraDaPlanilha.slice(0, 8).map(p => `• ${p.codigo} — ${p.nome}`).join('\n');
+    const manter = confirm(`${foraDaPlanilha.length} produto(s) do catálogo atual não estão nesta planilha:\n${exemplos}${foraDaPlanilha.length > 8 ? '\n…' : ''}\n\nOK = manter esses produtos no catálogo\nCancelar = remover do catálogo`);
+    if (manter) foraDaPlanilha.forEach(p => catalogData.push(p));
+  }
+  const duplicadosNaPlanilha = gruposDeDuplicados(catalogData);
+  if (duplicadosNaPlanilha.length > 0){
+    log(`Aviso: encontrei ${duplicadosNaPlanilha.length} grupo(s) de produtos repetidos no catálogo (mesmo código ou mesmo nome). Clique em "🔍 Procurar duplicados" para revisar e juntar.`);
+  }
+  catalogoAlteradoLocal.clear();
+  catalogoRemovidoLocal.clear();
   catalogDirty = false;
   document.getElementById('baixarCatalogoBtn').style.display = 'none';
   document.getElementById('catalogStatus').textContent = `${catalogData.length} produto(s) carregado(s).`;
@@ -681,6 +713,7 @@ document.getElementById('catalogFile').addEventListener('change', async (e) => {
   searchInput.style.display = catalogData.length > 0 ? 'block' : 'none';
   renderSearchResults();
   renderIncludedList();
+  atualizarFerramentasCatalogo();
   storageSet('catalogo_indice', catalogData).catch(err=>log('Aviso: não consegui salvar o índice do catálogo neste navegador (' + err.message + ').'));
 
   // Avisa (não esconde) quando um código que tinha foto salva não apareceu nesta planilha —
@@ -908,7 +941,7 @@ async function salvarFotoNoCatalogo(codigo, file){
     await storageSet('foto:' + codigo, {base64});
     item.temFoto = true;
     catalogDirty = true;
-    await storageSet('catalogo_indice', catalogData);
+    await salvarCatalogo([codigo]);
     // A partir de agora, o que fica na memória (pra essa geração) é a versão já comprimida —
     // assim o que você vê salvo é exatamente o que vai pro documento.
     window.__imageInputs[codigo] = blob;
@@ -1046,6 +1079,8 @@ async function restaurarConfiguracaoDeTrabalho(){
     renderSearchResults();
     renderIncludedList();
   }
+  await carregarApelidosCatalogo();
+  atualizarFerramentasCatalogo();
 
   const modeloSalvo = await storageGet('modelo');
   if (modeloSalvo && modeloSalvo.base64){
@@ -1062,6 +1097,228 @@ async function restaurarConfiguracaoDeTrabalho(){
 }
 restaurarConfiguracaoDeTrabalho();
 
+// ---------- Catálogo compartilhado: gravar sem atropelar o que outra pessoa salvou ----------
+// O catálogo inteiro é uma chave só. Duas pessoas com a página aberta: quem salvasse por último
+// apagava os produtos que a outra cadastrou (e a lista desatualizada fazia o produto parecer que não
+// existia — origem de muito cadastro repetido). Agora, antes de gravar, o app relê o catálogo do
+// banco e só aplica por cima o que ESTE navegador mudou (catalogoAlteradoLocal / catalogoRemovidoLocal).
+const catalogoAlteradoLocal = new Set();
+const catalogoRemovidoLocal = new Set();
+function chaveCodigo(c){ return String(c||'').trim().toUpperCase(); }
+
+async function mesclarCatalogoComBanco(){
+  let doBanco = null;
+  try{ doBanco = await storageGet('catalogo_indice'); }catch(err){ return false; }
+  if (!Array.isArray(doBanco)) return false;
+  const localPorChave = new Map();
+  catalogData.forEach(p => { const k = chaveCodigo(p.codigo); if (!localPorChave.has(k)) localPorChave.set(k, p); });
+  const mesclado = [];
+  const vistos = new Set();
+  doBanco.forEach(p => {
+    const k = chaveCodigo(p.codigo);
+    if (catalogoRemovidoLocal.has(k)) return;
+    // Código repetido no banco: mantém as duas linhas (o "Procurar duplicados" mostra), a menos que
+    // este navegador tenha acabado de mexer nesse código (aí vale só a versão daqui).
+    if (vistos.has(k)){ if (!catalogoAlteradoLocal.has(k)) mesclado.push(p); return; }
+    vistos.add(k);
+    const local = localPorChave.get(k);
+    if (local && catalogoAlteradoLocal.has(k)) { mesclado.push(local); return; }
+    // Mantém o mesmo objeto (outras partes do app guardam referência a ele), com os dados do banco.
+    mesclado.push(local ? Object.assign(local, p) : p);
+  });
+  catalogData.forEach(p => {
+    const k = chaveCodigo(p.codigo);
+    if (!vistos.has(k) && catalogoAlteradoLocal.has(k) && !catalogoRemovidoLocal.has(k)){ vistos.add(k); mesclado.push(p); }
+  });
+  catalogData = mesclado;
+  renderSearchResults(); // os botões da busca apontam pela posição no catálogo
+  return true;
+}
+async function salvarCatalogo(codigosAlterados){
+  (codigosAlterados || []).forEach(c => catalogoAlteradoLocal.add(chaveCodigo(c)));
+  await mesclarCatalogoComBanco();
+  await storageSet('catalogo_indice', catalogData);
+  catalogoAlteradoLocal.clear();
+  catalogoRemovidoLocal.clear();
+  atualizarFerramentasCatalogo();
+}
+
+// ---------- Cadastro repetido: como reconhecer ----------
+// Mesmo nome ignorando acento, maiúscula, pontuação, plural simples e ordem das palavras
+// ("Coletor Solar 2m²" = "coletores solar 2m2" = "Solar coletor 2m2").
+function chaveNomeProduto(nome){
+  return normalizarTextoMatch(String(nome||'').replace(/²/g, '2').replace(/³/g, '3'))
+    .split(' ').filter(Boolean)
+    .map(w => w.length > 3 ? w.replace(/(es|s)$/, '') : w)
+    .sort().join(' ');
+}
+// Lista produtos já cadastrados com nome igual ('igual') ou parecido ('parecido'), o igual primeiro.
+function produtosParecidos(nome, excetoCodigo){
+  const chave = chaveNomeProduto(nome);
+  if (!chave) return [];
+  const exceto = chaveCodigo(excetoCodigo);
+  const achados = [];
+  catalogData.forEach(p => {
+    if (exceto && chaveCodigo(p.codigo) === exceto) return;
+    if (chaveNomeProduto(p.nome) === chave) achados.push({p, tipo:'igual'});
+    else if (classificarMatchTexto(nome, p.nome)) achados.push({p, tipo:'parecido'});
+  });
+  return achados.sort((a, b) => (a.tipo === 'igual' ? 0 : 1) - (b.tipo === 'igual' ? 0 : 1));
+}
+// Grupos de produtos com o mesmo código ou o mesmo nome (para a ferramenta "Procurar duplicados").
+function gruposDeDuplicados(lista){
+  const pai = lista.map((_, i) => i);
+  const raiz = i => pai[i] === i ? i : (pai[i] = raiz(pai[i]));
+  const unir = (a, b) => { pai[raiz(a)] = raiz(b); };
+  const porCodigo = new Map(), porNome = new Map();
+  lista.forEach((p, i) => {
+    const kc = chaveCodigo(p.codigo), kn = chaveNomeProduto(p.nome);
+    if (porCodigo.has(kc)) unir(i, porCodigo.get(kc)); else porCodigo.set(kc, i);
+    if (kn){ if (porNome.has(kn)) unir(i, porNome.get(kn)); else porNome.set(kn, i); }
+  });
+  const grupos = new Map();
+  lista.forEach((p, i) => { const r = raiz(i); if (!grupos.has(r)) grupos.set(r, []); grupos.get(r).push(i); });
+  return [...grupos.values()].filter(g => g.length > 1);
+}
+
+function atualizarFerramentasCatalogo(){
+  const temCatalogo = catalogData.length > 0;
+  const semFoto = catalogData.filter(p => !p.temFoto).length;
+  const btnSemFoto = document.getElementById('semFotoBtn');
+  btnSemFoto.style.display = temCatalogo ? 'inline-block' : 'none';
+  btnSemFoto.textContent = semFoto ? `📷 Produtos sem foto (${semFoto})` : '📷 Todos os produtos têm foto ✓';
+  document.getElementById('duplicadosBtn').style.display = temCatalogo ? 'inline-block' : 'none';
+  if (document.getElementById('semFotoWrap').dataset.aberto === '1') renderProdutosSemFoto();
+}
+
+// ---------- Produtos sem foto: lista de pendências, anexa direto ----------
+const SEM_FOTO_POR_PAGINA = 30;
+let semFotoLimite = SEM_FOTO_POR_PAGINA;
+function renderProdutosSemFoto(){
+  const wrap = document.getElementById('semFotoWrap');
+  wrap.dataset.aberto = '1';
+  const pendentes = catalogData.filter(p => !p.temFoto);
+  if (pendentes.length === 0){
+    wrap.innerHTML = '<div class="dup-aviso" style="border-color:#b9d8b9;background:#f0f8f0;">✅ Todos os produtos do catálogo têm foto. <a href="#" id="fecharSemFoto">fechar</a></div>';
+    wrap.querySelector('#fecharSemFoto').addEventListener('click', ev => { ev.preventDefault(); wrap.innerHTML=''; wrap.dataset.aberto=''; });
+    return;
+  }
+  let html = `<div class="dup-aviso" style="background:#fbfaf8;border-color:var(--line);">
+    <b>${pendentes.length} produto(s) ainda sem foto.</b> Anexe a foto de cada um aqui — fica salva no catálogo para todas as propostas.
+    Tem as fotos numa pasta? Use o <b>🖼️ Banco de imagens</b> acima e depois <b>🔄 Sincronizar catálogo com o banco</b>, que anexa várias de uma vez.
+    <a href="#" id="fecharSemFoto" style="float:right;">fechar</a>`;
+  pendentes.slice(0, semFotoLimite).forEach(p => {
+    const idx = catalogData.indexOf(p);
+    html += `<div class="dup-item"><span><span class="sr-code" style="color:var(--sub);font-size:11px;">${escapeHtmlLocal(p.codigo)}</span> — ${escapeHtmlLocal(p.nome)}</span>
+      <label class="btn-ghost" style="cursor:pointer;">📷 Anexar foto<input type="file" accept="image/*" class="semFotoInput" data-idx="${idx}" style="display:none;"></label></div>`;
+  });
+  if (pendentes.length > semFotoLimite) html += `<div style="margin-top:6px;"><a href="#" id="maisSemFoto">mostrar mais ${Math.min(SEM_FOTO_POR_PAGINA, pendentes.length - semFotoLimite)}…</a></div>`;
+  html += '</div>';
+  wrap.innerHTML = html;
+  wrap.querySelector('#fecharSemFoto').addEventListener('click', ev => { ev.preventDefault(); wrap.innerHTML=''; wrap.dataset.aberto=''; });
+  const mais = wrap.querySelector('#maisSemFoto');
+  if (mais) mais.addEventListener('click', ev => { ev.preventDefault(); semFotoLimite += SEM_FOTO_POR_PAGINA; renderProdutosSemFoto(); });
+  wrap.querySelectorAll('.semFotoInput').forEach(inp => {
+    inp.addEventListener('change', async ev => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const code = catalogData[inp.dataset.idx].codigo;
+      window.__imageInputs[code] = file;
+      await salvarFotoNoCatalogo(code, file);
+      renderSearchResults();
+      renderProdutosSemFoto();
+    });
+  });
+}
+document.getElementById('semFotoBtn').addEventListener('click', async ()=>{
+  const wrap = document.getElementById('semFotoWrap');
+  if (wrap.dataset.aberto === '1'){ wrap.innerHTML=''; wrap.dataset.aberto=''; return; }
+  semFotoLimite = SEM_FOTO_POR_PAGINA;
+  await mesclarCatalogoComBanco();
+  renderProdutosSemFoto();
+});
+
+// ---------- Procurar duplicados: junta dois cadastros num só ----------
+// Os códigos removidos ficam como apelido do que ficou (catalogo_apelidos), pra proposta antiga que
+// usava o código removido continuar achando o produto.
+let apelidosCatalogo = {};
+async function carregarApelidosCatalogo(){
+  try{ apelidosCatalogo = (await storageGet('catalogo_apelidos')) || {}; }catch(err){ apelidosCatalogo = {}; }
+}
+function resolverCodigo(codigo){
+  let c = codigo, voltas = 0;
+  while (apelidosCatalogo[chaveCodigo(c)] && voltas++ < 10) c = apelidosCatalogo[chaveCodigo(c)];
+  return c;
+}
+async function renderDuplicados(){
+  const wrap = document.getElementById('duplicadosWrap');
+  await mesclarCatalogoComBanco();
+  const grupos = gruposDeDuplicados(catalogData);
+  if (grupos.length === 0){
+    wrap.innerHTML = '<div class="dup-aviso" style="border-color:#b9d8b9;background:#f0f8f0;">✅ Nenhum produto repetido no catálogo (mesmo código ou mesmo nome). <a href="#" class="fecharDup">fechar</a></div>';
+  } else {
+    let html = `<div class="dup-aviso"><b>${grupos.length} grupo(s) de produtos repetidos.</b> Em cada grupo, clique em <b>Manter este</b> no cadastro certo: os outros saem do catálogo, a foto passa para o que ficou (se ele não tiver) e propostas que usavam os outros passam a usar ele. <a href="#" class="fecharDup" style="float:right;">fechar</a>`;
+    grupos.forEach((g, gi) => {
+      html += `<div style="margin-top:10px;border-top:1px solid #e3b4a4;padding-top:6px;"><b>Grupo ${gi+1}</b>`;
+      g.forEach(i => {
+        const p = catalogData[i];
+        html += `<div class="dup-item"><span><span style="color:var(--sub);font-size:11px;">${escapeHtmlLocal(p.codigo)}</span> — ${escapeHtmlLocal(p.nome)} ${p.temFoto ? '📷' : '<span style="color:#b8860b;">(sem foto)</span>'}${p.desc ? `<br><span class="hint">${escapeHtmlLocal(p.desc.slice(0, 120))}</span>` : ''}</span>
+          <button class="btn-ghost manterDupBtn" data-grupo="${gi}" data-codigo="${escapeHtmlLocal(p.codigo)}">Manter este</button></div>`;
+      });
+      html += '</div>';
+    });
+    wrap.innerHTML = html + '</div>';
+    wrap.querySelectorAll('.manterDupBtn').forEach(btn => {
+      btn.addEventListener('click', () => juntarDuplicados(btn.dataset.codigo, grupos[btn.dataset.grupo].map(i => catalogData[i].codigo)));
+    });
+  }
+  wrap.querySelectorAll('.fecharDup').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); wrap.innerHTML=''; }));
+}
+async function juntarDuplicados(codigoMantido, codigosDoGrupo){
+  const mantido = catalogData.find(p => p.codigo === codigoMantido);
+  if (!mantido) return;
+  const removidos = catalogData.filter(p => p !== mantido && codigosDoGrupo.includes(p.codigo));
+  if (!confirm(`Manter "${mantido.codigo} — ${mantido.nome}" e remover do catálogo:\n${removidos.map(p => `• ${p.codigo} — ${p.nome}`).join('\n')}\n\nContinuar?`)) return;
+  try{
+    // Foto: se o que fica não tem, herda a de um removido.
+    if (!mantido.temFoto){
+      const comFoto = removidos.find(p => p.temFoto);
+      const foto = comFoto ? await storageGet('foto:' + comFoto.codigo) : null;
+      if (foto && foto.base64){
+        await storageSet('foto:' + mantido.codigo, foto);
+        mantido.temFoto = true;
+        delete window.__imageInputs[mantido.codigo];
+      }
+    }
+    await carregarApelidosCatalogo();
+    removidos.forEach(p => {
+      // Mesmo código repetido (duas linhas iguais): só tira a linha extra, não cria apelido pra si mesmo.
+      if (chaveCodigo(p.codigo) !== chaveCodigo(mantido.codigo)){
+        apelidosCatalogo[chaveCodigo(p.codigo)] = mantido.codigo;
+        catalogoRemovidoLocal.add(chaveCodigo(p.codigo));
+      }
+    });
+    await storageSet('catalogo_apelidos', apelidosCatalogo);
+    catalogData = catalogData.filter(p => !removidos.includes(p));
+    catalogoAlteradoLocal.add(chaveCodigo(mantido.codigo));
+    await salvarCatalogo([mantido.codigo]);
+    selectedCodes = [...new Set(selectedCodes.map(resolverCodigo))];
+    catalogDirty = true;
+    document.getElementById('baixarCatalogoBtn').style.display = 'inline-block';
+    log(`Duplicados juntados: ficou "${mantido.codigo} — ${mantido.nome}"; removido(s): ${removidos.map(p => p.codigo).join(', ')}.`);
+    renderSearchResults();
+    renderIncludedList();
+    renderDuplicados();
+  }catch(err){
+    log(`Erro ao juntar duplicados (${err.message}). Nada foi perdido — tente de novo.`);
+  }
+}
+document.getElementById('duplicadosBtn').addEventListener('click', ()=>{
+  const wrap = document.getElementById('duplicadosWrap');
+  if (wrap.innerHTML){ wrap.innerHTML = ''; return; }
+  renderDuplicados();
+});
+
 // ---------- Novo produto / Editar produto (mesmo formulário, dois modos) ----------
 function proximoCodigoNovoProduto(){
   let n = 1;
@@ -1069,15 +1326,57 @@ function proximoCodigoNovoProduto(){
   do {
     codigo = 'NOVO-' + String(n).padStart(3, '0');
     n++;
-  } while (catalogData.some(p => p.codigo === codigo));
+  } while (catalogData.some(p => chaveCodigo(p.codigo) === chaveCodigo(codigo)));
   return codigo;
 }
 let codigoEmEdicao = null; // null = criando produto novo; com valor = editando esse código existente
 
-function abrirFormularioProduto(codigoParaEditar){
+// Enquanto digita o nome, mostra o que já existe parecido — o jeito mais simples de não cadastrar de novo.
+function renderAvisoDuplicadoNoFormulario(){
+  const wrap = document.getElementById('npDupAviso');
+  const nome = document.getElementById('npNome').value.trim();
+  const achados = nome.length >= 3 ? produtosParecidos(nome, codigoEmEdicao).slice(0, 6) : [];
+  if (achados.length === 0){ wrap.innerHTML = ''; return; }
+  const temIgual = achados[0].tipo === 'igual';
+  let html = `<div class="dup-aviso">${temIgual ? '⛔ <b>Este produto já está cadastrado.</b> Use o existente em vez de cadastrar de novo:' : '⚠️ <b>Já existem produtos parecidos.</b> Confira se não é um destes:'}`;
+  achados.forEach(({p, tipo}) => {
+    html += `<div class="dup-item"><span>${tipo === 'igual' ? '<b>igual</b> · ' : ''}<span style="color:var(--sub);font-size:11px;">${escapeHtmlLocal(p.codigo)}</span> — ${escapeHtmlLocal(p.nome)} ${p.temFoto ? '📷' : ''}</span>
+      ${codigoEmEdicao ? '' : `<button class="btn-ghost usarExistenteBtn" data-codigo="${escapeHtmlLocal(p.codigo)}">Usar este na proposta</button>`}</div>`;
+  });
+  wrap.innerHTML = html + '</div>';
+  wrap.querySelectorAll('.usarExistenteBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const code = btn.dataset.codigo;
+      if (!selectedCodes.includes(code)) selectedCodes.push(code);
+      fecharFormularioProduto();
+      log(`Produto existente "${code}" incluído na proposta (nenhum cadastro novo criado).`);
+      renderSearchResults();
+      renderIncludedList();
+      await hidratarFotoDoProduto(code);
+      await tentarPuxarFotoDoBancoAutomaticamente(code);
+      renderIncludedList();
+    });
+  });
+}
+let avisoDupTimer = null;
+document.getElementById('npNome').addEventListener('input', ()=>{
+  clearTimeout(avisoDupTimer);
+  avisoDupTimer = setTimeout(renderAvisoDuplicadoNoFormulario, 200);
+});
+document.getElementById('npFoto').addEventListener('change', ()=>{
+  const file = document.getElementById('npFoto').files[0];
+  const img = document.getElementById('npFotoPreview');
+  if (img.src) URL.revokeObjectURL(img.src);
+  if (file){ img.src = URL.createObjectURL(file); img.style.display = 'block'; }
+  else { img.removeAttribute('src'); img.style.display = 'none'; }
+});
+
+async function abrirFormularioProduto(codigoParaEditar){
+  await mesclarCatalogoComBanco(); // compara com o catálogo mais novo, inclusive o que outros cadastraram agora
   const form = document.getElementById('novoProdutoForm');
   const tituloForm = document.getElementById('npFormTitulo');
   const campoCodigo = document.getElementById('npCodigo');
+  const fotoInfo = document.getElementById('npFotoInfo');
   if (codigoParaEditar){
     const item = catalogData.find(p => p.codigo === codigoParaEditar);
     if (!item) return;
@@ -1088,6 +1387,7 @@ function abrirFormularioProduto(codigoParaEditar){
     document.getElementById('npDesc').value = item.desc || '';
     document.getElementById('npEspec').value = item.espec || '';
     if (tituloForm) tituloForm.textContent = `Editando: ${item.codigo}`;
+    document.getElementById('npFotoLabel').textContent = item.temFoto ? 'Foto (já tem — escolha outra só para trocar)' : 'Foto (este produto ainda está SEM foto)';
   } else {
     codigoEmEdicao = null;
     campoCodigo.value = proximoCodigoNovoProduto();
@@ -1096,74 +1396,113 @@ function abrirFormularioProduto(codigoParaEditar){
     document.getElementById('npDesc').value = '';
     document.getElementById('npEspec').value = '';
     if (tituloForm) tituloForm.textContent = 'Novo produto';
+    document.getElementById('npFotoLabel').textContent = 'Foto (obrigatória)';
   }
+  fotoInfo.textContent = '';
   document.getElementById('npFoto').value = '';
+  document.getElementById('npFoto').dispatchEvent(new Event('change'));
+  renderAvisoDuplicadoNoFormulario();
   form.style.display = 'block';
   form.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
-document.getElementById('novoProdutoBtn').addEventListener('click', ()=>abrirFormularioProduto(null));
-document.getElementById('npCancelarBtn').addEventListener('click', ()=>{
+function fecharFormularioProduto(){
   document.getElementById('novoProdutoForm').style.display = 'none';
   document.getElementById('npCodigo').readOnly = false;
+  document.getElementById('npDupAviso').innerHTML = '';
   codigoEmEdicao = null;
-});
+}
+document.getElementById('novoProdutoBtn').addEventListener('click', ()=>abrirFormularioProduto(null));
+document.getElementById('npCancelarBtn').addEventListener('click', fecharFormularioProduto);
 document.getElementById('npSalvarBtn').addEventListener('click', async ()=>{
+  const btnSalvar = document.getElementById('npSalvarBtn');
   const codigo = document.getElementById('npCodigo').value.trim();
   const nome = document.getElementById('npNome').value.trim();
   const desc = document.getElementById('npDesc').value.trim();
   const espec = document.getElementById('npEspec').value.trim();
-  const fotoFile = document.getElementById('npFoto').files[0] || null;
+  let fotoFile = document.getElementById('npFoto').files[0] || null;
   if (!codigo || !nome){
     alert('Preencha ao menos o código e o nome do produto.');
     return;
   }
+  btnSalvar.disabled = true;
+  try{
+    await mesclarCatalogoComBanco();
+    const parecidos = produtosParecidos(nome, codigoEmEdicao);
+    const iguais = parecidos.filter(a => a.tipo === 'igual');
 
-  if (codigoEmEdicao){
-    // Edição: atualiza o item existente no lugar (código não muda).
-    const item = catalogData.find(p => p.codigo === codigoEmEdicao);
-    if (!item){ alert('Não achei esse produto no catálogo pra editar.'); return; }
-    item.nome = nome; item.desc = desc; item.espec = espec;
-    catalogDirty = true;
-    try{
-      await storageSet('catalogo_indice', catalogData);
-      log(`Produto "${codigo}" atualizado.`);
-    }catch(err){
-      log(`Aviso: não consegui salvar a edição de ${codigo} neste navegador (${err.message}).`);
+    // Sem foto escolhida: procura no banco de imagens uma que bata exato com o nome.
+    let fotoDoBanco = null;
+    if (!fotoFile){
+      const item = codigoEmEdicao ? catalogData.find(p => p.codigo === codigoEmEdicao) : null;
+      const match = (!item || !item.temFoto) && bancoImagensIndice.length ? buscarImagemNoBancoParaProduto(nome) : null;
+      if (match && match.tipo === 'exato'){
+        fotoDoBanco = await hidratarImagemDoBanco(match.slug).catch(()=>null);
+        if (fotoDoBanco){ fotoFile = fotoDoBanco; log(`📸 Usando a foto "${match.nomeArquivo}" do banco de imagens.`); }
+      }
     }
-    if (fotoFile){
-      window.__imageInputs[codigo] = fotoFile;
-      await salvarFotoNoCatalogo(codigo, fotoFile);
-    } else if (!item.temFoto){
-      await tentarPuxarFotoDoBancoAutomaticamente(codigo);
-    }
-  } else {
-    // Criação de produto novo.
-    if (catalogData.some(p => p.codigo === codigo)){
-      alert(`Já existe um produto com o código "${codigo}" no catálogo. Escolha outro código.`);
-      return;
-    }
-    const novoItem = {codigo, nome, desc, espec, temFoto:false};
-    catalogData.push(novoItem);
-    if (!selectedCodes.includes(codigo)) selectedCodes.push(codigo);
-    if (fotoFile){
-      window.__imageInputs[codigo] = fotoFile;
-      await salvarFotoNoCatalogo(codigo, fotoFile); // já marca temFoto=true e salva o índice
-    } else {
+
+    if (codigoEmEdicao){
+      // Edição: atualiza o item existente no lugar (código não muda).
+      const item = catalogData.find(p => p.codigo === codigoEmEdicao);
+      if (!item){ alert('Não achei esse produto no catálogo pra editar (pode ter sido removido por outra pessoa).'); return; }
+      if (iguais.length && !confirm(`Já existe outro produto com esse nome:\n${iguais.map(a => `• ${a.p.codigo} — ${a.p.nome}`).join('\n')}\n\nSalvar mesmo assim? (Para juntar os dois, use "🔍 Procurar duplicados".)`)) return;
+      if (!fotoFile && !item.temFoto && !confirm('Este produto continua SEM foto. Salvar assim mesmo?')) return;
+      item.nome = nome; item.desc = desc; item.espec = espec;
       catalogDirty = true;
-      document.getElementById('baixarCatalogoBtn').style.display = 'inline-block';
-      storageSet('catalogo_indice', catalogData).catch(err=>log('Aviso: não consegui salvar o catálogo neste navegador (' + err.message + ').'));
-      await tentarPuxarFotoDoBancoAutomaticamente(codigo);
+      try{
+        await salvarCatalogo([codigo]);
+        log(`Produto "${codigo}" atualizado.`);
+      }catch(err){
+        log(`Aviso: não consegui salvar a edição de ${codigo} (${err.message}).`);
+      }
+      if (fotoFile){
+        window.__imageInputs[codigo] = fotoFile;
+        await salvarFotoNoCatalogo(codigo, fotoFile);
+      }
+    } else {
+      // Criação de produto novo: código e nome não podem repetir, e a foto é obrigatória.
+      const codigoRepetido = catalogData.find(p => chaveCodigo(p.codigo) === chaveCodigo(codigo));
+      if (codigoRepetido){
+        alert(`Já existe um produto com o código "${codigoRepetido.codigo}" (${codigoRepetido.nome}). Escolha outro código.`);
+        return;
+      }
+      if (iguais.length){
+        renderAvisoDuplicadoNoFormulario();
+        alert(`Este produto já está cadastrado:\n${iguais.map(a => `• ${a.p.codigo} — ${a.p.nome}`).join('\n')}\n\nUse "Usar este na proposta" no aviso do formulário em vez de cadastrar de novo.`);
+        return;
+      }
+      const soParecidos = parecidos.filter(a => a.tipo === 'parecido');
+      if (soParecidos.length && !confirm(`Já existem produtos parecidos:\n${soParecidos.slice(0, 6).map(a => `• ${a.p.codigo} — ${a.p.nome}`).join('\n')}\n\nÉ mesmo um produto diferente? OK = cadastrar novo · Cancelar = voltar e conferir`)) return;
+      if (!fotoFile){
+        alert('A foto do produto é obrigatória. Escolha a foto no campo "Foto" antes de salvar.');
+        return;
+      }
+      const novoItem = {codigo, nome, desc, espec, temFoto:false};
+      catalogData.push(novoItem);
+      catalogoAlteradoLocal.add(chaveCodigo(codigo));
+      window.__imageInputs[codigo] = fotoFile;
+      await salvarFotoNoCatalogo(codigo, fotoFile); // marca temFoto=true e salva o catálogo
+      if (!novoItem.temFoto){
+        // Foto não gravou: não deixa o produto entrar sem foto.
+        catalogData = catalogData.filter(p => p !== novoItem);
+        catalogoAlteradoLocal.delete(chaveCodigo(codigo));
+        delete window.__imageInputs[codigo];
+        alert('Não consegui salvar a foto, então o produto não foi cadastrado. Tente de novo (veja o log abaixo).');
+        renderIncludedList();
+        return;
+      }
+      if (!selectedCodes.includes(codigo)) selectedCodes.push(codigo);
+      log(`Produto novo "${nome}" (${codigo}) criado com foto e incluído nesta proposta.`);
     }
-    log(`Produto novo "${nome}" (${codigo}) criado e incluído nesta proposta.`);
-  }
 
-  document.getElementById('novoProdutoForm').style.display = 'none';
-  document.getElementById('npCodigo').readOnly = false;
-  codigoEmEdicao = null;
-  document.getElementById('baixarCatalogoBtn').style.display = 'inline-block';
-  document.getElementById('log').style.display = 'block';
-  renderSearchResults();
-  renderIncludedList();
+    fecharFormularioProduto();
+    document.getElementById('baixarCatalogoBtn').style.display = 'inline-block';
+    document.getElementById('log').style.display = 'block';
+    renderSearchResults();
+    renderIncludedList();
+  } finally {
+    btnSalvar.disabled = false;
+  }
 });
 
 // ---------- Baixar catálogo atualizado (.xlsx) ----------
@@ -1207,35 +1546,127 @@ document.getElementById('templateFileManutencao').addEventListener('change', asy
   }
 });
 
+// ---------- Custo × MKP ÷ índice (campos internos da PCC) ----------
+// Na PCC: Vlr. Unit. = Custo × MKP ÷ Índice, com um Índice por bloco (0,90 = 10% de negociação).
+// Custo e MKP com até 4 casas, pra recalcular o preço igual à planilha.
+function formatNumeroInterno(n){
+  return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:4});
+}
+// MKP e % são números pequenos: "1.35" e "1,35" querem dizer a mesma coisa (parseBRNumber leria 135).
+function parseNumeroFlex(str){
+  const s = String(str||'').trim();
+  if (!s) return NaN;
+  const n = s.includes(',') ? parseBRNumber(s) : parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+function percentualDeIndice(indice){
+  return formatNumeroInterno(Math.round((1 - indice) * 10000) / 100).replace(/,00$/, '');
+}
+// Índice de negociação de uma linha = o do divisor de bloco logo acima dela (sem divisor: 1, sem negociação).
+function divisorDaLinha(tr){
+  let el = tr.previousElementSibling;
+  while (el && !el.classList.contains('pcc-divider')) el = el.previousElementSibling;
+  return el;
+}
+function indiceDaLinha(tr){
+  const div = divisorDaLinha(tr);
+  const n = div ? parseFloat(div.dataset.indice) : NaN;
+  return n > 0 ? n : 1;
+}
+function ultimoDivisorPcc(){
+  const divs = document.querySelectorAll('#pccBody tr.pcc-divider');
+  return divs.length ? divs[divs.length-1] : null;
+}
+// Linha com custo digitada numa tabela sem nenhum bloco: cria o divisor do bloco principal no topo,
+// pra existir onde ajustar a negociação.
+function garantirDivisorPrincipal(){
+  const body = document.getElementById('pccBody');
+  if (body.querySelector('tr.pcc-divider')) return;
+  const nome = (body.querySelector('tr:not(.pcc-divider)')||{dataset:{}}).dataset.bloco || 'Bloco 1';
+  body.querySelectorAll('tr').forEach(tr => { if (!tr.dataset.bloco) tr.dataset.bloco = nome; });
+  const div = addPccDividerRow(nome, true, 1);
+  body.insertBefore(div, body.firstChild);
+}
+
 function addPccRow(data){
-  data = data || {material:'', qtd:'', un:'un.', vunit:'', vtotal:'', bloco:''};
+  const ultimoDiv = ultimoDivisorPcc();
+  data = data || {material:'', qtd:'', un:'un.', vunit:'', vtotal:'', bloco: ultimoDiv ? ultimoDiv.dataset.blocoNome : ''};
   const tr = document.createElement('tr');
   tr.dataset.bloco = data.bloco || '';
   tr.innerHTML = `
-    <td><input class="pMat" value="${data.material}"></td>
-    <td><input class="pQtd" value="${data.qtd}"></td>
-    <td><input class="pUn" value="${data.un}"></td>
-    <td><input class="pVU" value="${data.vunit}"></td>
-    <td><input class="pVT" value="${data.vtotal}" readonly></td>
+    <td><input class="pMat" value="${escapeHtmlLocal(data.material)}"></td>
+    <td><input class="pQtd" value="${escapeHtmlLocal(data.qtd)}"></td>
+    <td><input class="pUn" value="${escapeHtmlLocal(data.un)}"></td>
+    <td class="interno"><input class="pCusto" value="${escapeHtmlLocal(data.custo||'')}" title="Custo unitário (interno)"></td>
+    <td class="interno"><input class="pMkp" value="${escapeHtmlLocal(data.mkp||'')}" title="MKP do item (interno)"></td>
+    <td><input class="pVU" value="${escapeHtmlLocal(data.vunit)}"></td>
+    <td><input class="pVT" value="${escapeHtmlLocal(data.vtotal)}" readonly></td>
     <td><button class="btn-ghost delRow">✕</button></td>`;
   document.getElementById('pccBody').appendChild(tr);
   const qtd = tr.querySelector('.pQtd'), vu = tr.querySelector('.pVU'), vt = tr.querySelector('.pVT');
-  const recalc = ()=>{
-    const q = parseBRNumber(qtd.value);
-    const u = parseBRNumber(vu.value);
-    vt.value = formatBRL(q*u);
+  const custo = tr.querySelector('.pCusto'), mkp = tr.querySelector('.pMkp');
+  const recalcTotal = ()=>{
+    vt.value = formatBRL(parseBRNumber(qtd.value) * parseBRNumber(vu.value));
     updateTotal();
   };
-  qtd.addEventListener('input', recalc);
-  vu.addEventListener('input', recalc);
+  // Custo ou MKP mudou (ou o índice do bloco): recalcula o Vlr. Unit.
+  const recalcDoMkp = ()=>{
+    const c = parseBRNumber(custo.value);
+    if (!(c > 0)) return;
+    let m = parseNumeroFlex(mkp.value);
+    if (!(m > 0)){ m = 1; if (document.activeElement !== mkp) mkp.value = '1'; }
+    vu.value = formatBRL(c * m / indiceDaLinha(tr));
+    recalcTotal();
+  };
+  // Vlr. Unit. digitado à mão num item com custo: o MKP acompanha.
+  const recalcDoPreco = ()=>{
+    const c = parseBRNumber(custo.value);
+    const u = parseBRNumber(vu.value);
+    if (c > 0 && u > 0) mkp.value = formatNumeroInterno(Math.round(u * indiceDaLinha(tr) / c * 10000) / 10000);
+    recalcTotal();
+  };
+  tr._recalcIndice = recalcDoMkp;
+  qtd.addEventListener('input', recalcTotal);
+  vu.addEventListener('input', recalcDoPreco);
+  // Ao sair do campo, "3000" vira "3.000,00" — é esse texto que vai para o documento.
+  vu.addEventListener('change', ()=>{ const u = parseBRNumber(vu.value); if (u > 0) vu.value = formatBRL(u); });
+  mkp.addEventListener('input', recalcDoMkp);
+  custo.addEventListener('input', ()=>{
+    if (parseBRNumber(custo.value) > 0) garantirDivisorPrincipal();
+    recalcDoMkp();
+  });
   tr.querySelector('.delRow').addEventListener('click', ()=>{ tr.remove(); updateTotal(); });
+  return tr;
 }
-function addPccDividerRow(nome, ehPrincipal){
+function addPccDividerRow(nome, ehPrincipal, indice){
   const tr = document.createElement('tr');
   tr.className = 'pcc-divider';
   tr.dataset.blocoNome = nome;
-  tr.innerHTML = `<td colspan="6">📦 <input type="text" class="divider-nome-input" value="${escapeHtmlLocal(nome)}" placeholder="Nome do bloco">${ehPrincipal ? ' <span class="hint" style="font-weight:normal;">(principal)</span>' : ''}</td>`;
+  tr.dataset.indice = indice > 0 ? String(indice) : '1';
+  tr.innerHTML = `<td colspan="8">📦 <input type="text" class="divider-nome-input" value="${escapeHtmlLocal(nome)}" placeholder="Nome do bloco">${ehPrincipal ? ' <span class="hint" style="font-weight:normal;">(principal)</span>' : ''}
+    <span class="neg-wrap" title="Interno: não aparece para o cliente. Índice da PCC = 1 − negociação (10% → 0,90). Vlr. Unit. = Custo × MKP ÷ índice.">🔒 Negociação <input type="text" class="divider-neg-input" value="${percentualDeIndice(parseFloat(tr.dataset.indice))}"> % <span class="neg-indice">(índice ${formatNumeroInterno(parseFloat(tr.dataset.indice))})</span></span></td>`;
   document.getElementById('pccBody').appendChild(tr);
+  const negInput = tr.querySelector('.divider-neg-input');
+  negInput.addEventListener('change', ()=>{
+    const pct = parseNumeroFlex(negInput.value);
+    if (isNaN(pct) || pct < 0 || pct >= 100){
+      alert('Informe a negociação em %, entre 0 e 99 (ex.: 10 para índice 0,90).');
+      negInput.value = percentualDeIndice(parseFloat(tr.dataset.indice));
+      return;
+    }
+    const indiceNovo = Math.round((1 - pct/100) * 10000) / 10000;
+    tr.dataset.indice = String(indiceNovo);
+    tr.querySelector('.neg-indice').textContent = `(índice ${formatNumeroInterno(indiceNovo)})`;
+    let el = tr.nextElementSibling, semCusto = 0;
+    while (el && !el.classList.contains('pcc-divider')){
+      if (parseBRNumber(el.querySelector('.pCusto').value) > 0) el._recalcIndice();
+      else if (el.querySelector('.pMat').value.trim()) semCusto++;
+      el = el.nextElementSibling;
+    }
+    updateTotal();
+    log(`Negociação do bloco "${tr.dataset.blocoNome}" agora é ${pct}% (índice ${formatNumeroInterno(indiceNovo)}).` + (semCusto ? ` ${semCusto} item(ns) sem custo não mudaram — preencha o custo pra eles acompanharem.` : ''));
+    agendarSalvamento();
+  });
   const input = tr.querySelector('.divider-nome-input');
   input.addEventListener('change', ()=>{
     const nomeAntigo = tr.dataset.blocoNome;
@@ -1250,6 +1681,7 @@ function addPccDividerRow(nome, ehPrincipal){
     log(`Bloco renomeado: "${nomeAntigo}" → "${novoNome}".`);
     document.getElementById('log').style.display = 'block';
   });
+  return tr;
 }
 function updateTotal(){
   let total=0;
@@ -1336,9 +1768,11 @@ document.getElementById('pccFile').addEventListener('change', async (e)=>{
 
       // Colunas identificadas pelo texto do cabeçalho — não pela posição fixa (a PCC já mudou de
       // layout mais de uma vez: às vezes tem coluna "Código" antes de "Material", às vezes não).
-      let idxMaterial = -1, idxQtd = -1, idxUn = -1, idxVUnit = -1, idxVTotal = -1;
+      let idxMaterial = -1, idxQtd = -1, idxUn = -1, idxVUnit = -1, idxVTotal = -1, idxCusto = -1, idxMkp = -1;
       headerRow.forEach((h, ci) => {
         const t = String(h||'').toLowerCase();
+        if (t.trim() === 'custo' && idxCusto === -1) idxCusto = ci;   // "Custo" unitário, não "Custo Total"
+        if (t.trim() === 'mkp' && idxMkp === -1) idxMkp = ci;
         if (t.includes('material') && idxMaterial === -1) idxMaterial = ci;
         if (t.includes('qtd') && idxQtd === -1) idxQtd = ci;
         if ((t === 'un.' || t.includes('un.')) && idxUn === -1) idxUn = ci;
@@ -1356,6 +1790,12 @@ document.getElementById('pccFile').addEventListener('change', async (e)=>{
       const eraPlaceholder = !nomeBloco || /edite este nome/i.test(nomeBloco);
       if (eraPlaceholder) nomeBloco = `Bloco ${bi+1}`;
 
+      // Índice de negociação do bloco: o número logo à direita da célula "Indice" (ex.: 0,9).
+      const linhaTitulo = rows[tituloIdx] || [];
+      const posIndice = linhaTitulo.findIndex(c => String(c||'').trim().toLowerCase() === 'indice');
+      const valorIndice = linhaTitulo.slice(posIndice+1).find(c => typeof c === 'number');
+      const indice = valorIndice > 0 && valorIndice <= 1 ? valorIndice : 1;
+
       // Limite da varredura: até a próxima linha de título, ou até o fim da planilha.
       const limiteVarredura = idxTitulos[bi+1] !== undefined ? idxTitulos[bi+1] : rows.length;
 
@@ -1369,17 +1809,29 @@ document.getElementById('pccFile').addEventListener('change', async (e)=>{
         // Linha vazia ou com #REF! (sobra de inserir/excluir linha na planilha) — pula, não para.
         if (!materialRaw || materialLower.includes('#ref')) continue;
 
+        const custoNum = idxCusto !== -1 && typeof r[idxCusto]==='number' ? r[idxCusto] : null;
+        const mkpNum = idxMkp !== -1 && typeof r[idxMkp]==='number' && r[idxMkp] > 0 ? r[idxMkp] : (custoNum !== null ? 1 : null);
+        let vunit = typeof r[idxVUnit]==='number' ? formatBRL(r[idxVUnit]) : String(r[idxVUnit]||'');
+        let vtotal = typeof r[idxVTotal]==='number' ? formatBRL(r[idxVTotal]) : String(r[idxVTotal]||'');
+        // Planilha salva sem as fórmulas calculadas (valor vazio): calcula aqui pelo custo.
+        if (!vunit && custoNum > 0){
+          const u = custoNum * mkpNum / indice;
+          vunit = formatBRL(u);
+          vtotal = formatBRL(u * (parseBRNumber(String(r[idxQtd]||'').replace('.', ',')) || 0));
+        }
         linhas.push({
           material: materialRaw,
           qtd: String(r[idxQtd]!==undefined && r[idxQtd]!=='' ? r[idxQtd] : ''),
           un: String(r[idxUn]||''),
-          vunit: typeof r[idxVUnit]==='number' ? formatBRL(r[idxVUnit]) : String(r[idxVUnit]||''),
-          vtotal: typeof r[idxVTotal]==='number' ? formatBRL(r[idxVTotal]) : String(r[idxVTotal]||''),
+          custo: custoNum !== null ? formatNumeroInterno(custoNum) : '',
+          mkp: mkpNum !== null ? formatNumeroInterno(mkpNum) : '',
+          vunit,
+          vtotal,
         });
       }
 
       if (linhas.length > 0){
-        blocosEncontrados.push({nome: nomeBloco, linhas});
+        blocosEncontrados.push({nome: nomeBloco, linhas, indice, temCusto: linhas.some(l => l.custo)});
       }
       // bloco sem nenhuma linha preenchida = ignorado, não entra na proposta
     });
@@ -1392,9 +1844,10 @@ document.getElementById('pccFile').addEventListener('change', async (e)=>{
 
     document.getElementById('pccBody').innerHTML = '';
     let totalItens = 0;
+    const mostrarDivisores = blocosEncontrados.length > 1 || blocosEncontrados.some(b => b.temCusto);
     blocosEncontrados.forEach((bloco, bi) => {
-      if (blocosEncontrados.length > 1){
-        addPccDividerRow(bloco.nome, bi === 0);
+      if (mostrarDivisores){
+        addPccDividerRow(bloco.nome, bi === 0, bloco.indice);
       }
       bloco.linhas.forEach(l => addPccRow({...l, bloco: bloco.nome}));
       totalItens += bloco.linhas.length;
@@ -1543,6 +1996,10 @@ function coletarPcc(){
       vunit: tr.querySelector('.pVU').value.trim(),
       vtotal: tr.querySelector('.pVT').value.trim(),
       bloco: tr.dataset.bloco || '',
+      // internos: guardados na proposta salva, mas o documento do cliente só usa os campos acima
+      custo: tr.querySelector('.pCusto').value.trim(),
+      mkp: tr.querySelector('.pMkp').value.trim(),
+      indice: divisorDaLinha(tr) ? indiceDaLinha(tr) : undefined,
     });
   });
   return linhas;
@@ -2141,16 +2598,18 @@ function aplicarDadosNoFormulario(dados){
 
   document.getElementById('pccBody').innerHTML = '';
   const gruposRestaurados = agruparBlocosPcc(dados.pcc || []);
+  const mostrarDivisores = gruposRestaurados.length > 1 || (dados.pcc || []).some(l => l.custo || l.indice);
   gruposRestaurados.forEach((grupo, gi) => {
-    if (gruposRestaurados.length > 1){
-      addPccDividerRow(grupo.nome, gi === 0);
+    if (mostrarDivisores){
+      addPccDividerRow(grupo.nome || 'Bloco 1', gi === 0, (grupo.linhas.find(l => l.indice) || {}).indice);
     }
-    grupo.linhas.forEach(l => addPccRow(l));
+    grupo.linhas.forEach(l => addPccRow(mostrarDivisores && !l.bloco ? {...l, bloco: 'Bloco 1'} : l));
   });
   revisaoBaseline = dados.revisaoBaseline || null;
   updateTotal();
 
-  selectedCodes = Array.isArray(dados.selectedCodes) ? dados.selectedCodes : [];
+  // Código que virou apelido ao juntar duplicados aponta pro produto que ficou.
+  selectedCodes = Array.isArray(dados.selectedCodes) ? [...new Set(dados.selectedCodes.map(resolverCodigo))] : [];
   renderIncludedList();
   renderSearchResults();
 }
@@ -2696,6 +3155,14 @@ async function construirBlobProposta(){
   if (selectedCodes.length === 0){ log('Erro: selecione ao menos um produto no catálogo (passo 2).'); return null; }
 
   await hidratarFotosDosSelecionados();
+  const semFoto = selectedCodes.filter(c => !window.__imageInputs[c]);
+  if (semFoto.length){
+    const nomes = semFoto.map(c => { const p = catalogData.find(x => x.codigo === c); return `• ${c} — ${p ? p.nome : '?'}`; }).join('\n');
+    if (!confirm(`${semFoto.length} produto(s) da proposta estão SEM foto (o card sai com o texto "[clique aqui e insira a foto do produto]"):\n${nomes}\n\nGerar mesmo assim?`)){
+      log('Geração cancelada: anexe as fotos que faltam em "Produtos incluídos" (passo 2).');
+      return null;
+    }
+  }
 
   log(`Abrindo modelo (${ehComercial ? 'comercial' : 'manutenção'})...`);
   const zip = await JSZip.loadAsync(templateArrayBuffer);
