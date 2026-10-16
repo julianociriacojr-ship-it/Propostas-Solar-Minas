@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <title>Gerador de Propostas — Solar Minas</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.4.0/dist/docx-preview.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/docx-preview.min.js"></script>
 <style>
   :root{
     --bg:#faf8f5; --panel:#ffffff; --ink:#2b241f; --sub:#7a6f66;
@@ -80,9 +80,21 @@
 </style>
 </head>
 <body>
+<div id="loginModal" style="display:none;position:fixed;inset:0;background:rgba(43,36,31,.55);z-index:1000;align-items:center;justify-content:center;padding:16px;">
+  <form id="loginForm" style="background:var(--panel);border-radius:12px;padding:24px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+    <div style="font-size:18px;font-weight:bold;">Gerador de Propostas</div>
+    <div class="hint">Entre com seu usuário para acessar o banco compartilhado da equipe.</div>
+    <input id="loginUser" autocomplete="username" placeholder="Usuário" required style="border:1px solid var(--line);border-radius:7px;padding:10px;font-size:15px;">
+    <input id="loginPass" type="password" autocomplete="current-password" placeholder="Senha" required style="border:1px solid var(--line);border-radius:7px;padding:10px;font-size:15px;">
+    <div id="loginErro" style="color:var(--accent-dark);font-size:13px;min-height:16px;"></div>
+    <button class="btn-primary" id="loginBtn" type="submit" style="padding:11px;font-size:15px;">Entrar</button>
+  </form>
+</div>
 <div class="wrap">
+  <div id="barraUsuario" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:10px;min-height:20px;"></div>
+  <div id="servidorErro" style="display:none;background:#fdecea;border:1px solid #e0a09c;color:#7a1f1b;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;"></div>
   <h1>Gerador de Propostas — Solar Minas</h1>
-  <p class="sub">Catálogo, modelo e fotos ficam salvos automaticamente neste navegador. Cada proposta é salva por cliente — clique num cliente salvo pra abrir tudo carregado, ou comece uma nova.</p>
+  <p class="sub" id="subtituloModo">Catálogo, modelo e fotos ficam salvos automaticamente neste navegador. Cada proposta é salva por cliente — clique num cliente salvo pra abrir tudo carregado, ou comece uma nova.</p>
 
   <div id="rascunhoBanner" style="display:none;align-items:center;gap:10px;background:#fff4e0;border:1px solid #e0b060;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
     <span id="rascunhoBannerTexto" style="flex:1;"></span>
@@ -253,13 +265,16 @@
 </div>
 
 <script>
-// ---------- window.storage: implementação local (IndexedDB) ----------
-// O app foi originalmente criado como Artifact da Claude, onde "window.storage" é fornecido
-// pela plataforma (dados ficam na nuvem da Anthropic). Fora desse ambiente (ex: hospedado no
-// Netlify) essa API não existe — por isso implementamos aqui a mesma interface (set/get/delete/list)
-// usando IndexedDB do navegador. Os dados passam a ficar salvos NESTE navegador/dispositivo,
-// não sincronizados entre aparelhos diferentes. Ver README para uma futura evolução com backend.
+// ---------- window.storage: banco compartilhado (servidor) ou local (IndexedDB) ----------
+// O app nasceu como Artifact da Claude, onde "window.storage" vinha da plataforma. Aqui ele tem
+// duas implementações com a mesma interface (set/get/delete/list):
+//  - SERVIDOR: quando o app é aberto pelo servidor da Solar Minas (pasta server/ do repositório).
+//    Todos os usuários logados leem e gravam o MESMO banco. Exige login.
+//  - LOCAL: quando não há servidor (arquivo aberto direto, GitHub Pages, Netlify). Os dados ficam
+//    só neste navegador, em IndexedDB, como era antes.
+// O modo é decidido sozinho ao abrir: se /api/me responde, é servidor.
 window.storage = (function(){
+  // ----- Implementação local (IndexedDB) -----
   const DB_NAME = 'gerador_propostas_solar_minas';
   const STORE_NAME = 'kv';
   let dbPromise = null;
@@ -313,18 +328,226 @@ window.storage = (function(){
     return reqToPromise(tx.objectStore(STORE_NAME).getAllKeys());
   }
 
-  return {
-    async set(key, value /*, shared */){ await idbPut(key, value); },
-    async get(key /*, shared */){
+  // ----- Implementação servidor -----
+  let usuarioAtual = null;
+  let loginEmAndamento = null;
+
+  // O rascunho "sem cliente" é de quem está digitando, não do time todo.
+  const CHAVES_POR_USUARIO = ['rascunho_sem_cliente'];
+  function chaveServidor(key){
+    return CHAVES_POR_USUARIO.includes(key) ? key + ':' + usuarioAtual : key;
+  }
+
+  function mostrarErroConexao(msg){
+    const el = document.getElementById('servidorErro');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function esconderErroConexao(){
+    const el = document.getElementById('servidorErro');
+    if (el) el.style.display = 'none';
+  }
+
+  function pedirLogin(){
+    if (loginEmAndamento) return loginEmAndamento;
+    loginEmAndamento = new Promise(resolve => {
+      const modal = document.getElementById('loginModal');
+      const form = document.getElementById('loginForm');
+      const erro = document.getElementById('loginErro');
+      const btn = document.getElementById('loginBtn');
+      erro.textContent = '';
+      modal.style.display = 'flex';
+      document.getElementById('loginUser').focus();
+      form.onsubmit = async ev => {
+        ev.preventDefault();
+        btn.disabled = true;
+        erro.textContent = '';
+        try{
+          const r = await fetch('/api/login', {
+            method:'POST', credentials:'same-origin',
+            headers:{'Content-Type':'application/json', 'X-Requested-With':'propostas'},
+            body: JSON.stringify({user: document.getElementById('loginUser').value, pass: document.getElementById('loginPass').value}),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok){ erro.textContent = j.error || ('Erro ' + r.status); return; }
+          usuarioAtual = j.user;
+          document.getElementById('loginPass').value = '';
+          modal.style.display = 'none';
+          atualizarBarraUsuario();
+          loginEmAndamento = null;
+          resolve(j.user);
+        }catch(err){
+          erro.textContent = 'Sem conexão com o servidor. Tente de novo.';
+        }finally{
+          btn.disabled = false;
+        }
+      };
+    });
+    return loginEmAndamento;
+  }
+
+  // fetch com login automático (sessão expirada) e novas tentativas em falha de rede.
+  async function api(path, opts = {}){
+    for (let tentativa = 0; ; tentativa++){
+      let r;
+      try{
+        r = await fetch(path, {credentials:'same-origin', ...opts, headers:{'X-Requested-With':'propostas', ...(opts.headers || {})}});
+      }catch(err){
+        if (tentativa < 3){ await new Promise(ok => setTimeout(ok, 1000 * 2 ** tentativa)); continue; }
+        mostrarErroConexao('⚠ Sem conexão com o servidor. Suas últimas alterações podem não ter sido salvas. Verifique a internet e recarregue a página.');
+        throw new Error('Sem conexão com o servidor');
+      }
+      if (r.status === 401 && !path.startsWith('/api/login')){ await pedirLogin(); continue; }
+      if (r.status >= 500 && tentativa < 3){ await new Promise(ok => setTimeout(ok, 1000 * 2 ** tentativa)); continue; }
+      esconderErroConexao();
+      return r;
+    }
+  }
+
+  async function erroDaResposta(r){
+    const j = await r.json().catch(() => ({}));
+    const err = new Error(j.error || ('Erro do servidor ' + r.status));
+    mostrarErroConexao('⚠ ' + err.message + '. A última alteração pode não ter sido salva.');
+    return err;
+  }
+
+  const servidor = {
+    async set(key, value){
+      const r = await api('/api/kv/' + encodeURIComponent(chaveServidor(key)), {method:'PUT', headers:{'Content-Type':'text/plain; charset=utf-8'}, body:value});
+      if (!r.ok) throw await erroDaResposta(r);
+    },
+    async get(key){
+      const r = await api('/api/kv/' + encodeURIComponent(chaveServidor(key)));
+      if (r.status === 404) return undefined;
+      if (!r.ok) throw await erroDaResposta(r);
+      return {value: await r.text()};
+    },
+    async delete(key){
+      const r = await api('/api/kv/' + encodeURIComponent(chaveServidor(key)), {method:'DELETE'});
+      if (!r.ok) throw await erroDaResposta(r);
+    },
+    async list(prefix){
+      const r = await api('/api/kv?prefix=' + encodeURIComponent(prefix || ''));
+      if (!r.ok) throw await erroDaResposta(r);
+      return r.json();
+    },
+  };
+
+  const local = {
+    async set(key, value){ await idbPut(key, value); },
+    async get(key){
       const value = await idbGet(key);
       return value === undefined ? undefined : { value };
     },
-    async delete(key /*, shared */){ await idbDelete(key); },
-    async list(prefix /*, shared */){
+    async delete(key){ await idbDelete(key); },
+    async list(prefix){
       const allKeys = await idbKeys();
       const keys = allKeys.filter(k => typeof k === 'string' && k.startsWith(prefix || ''));
       return { keys };
     },
+  };
+
+  // ----- Decide o modo ao abrir -----
+  const modoPronto = (async () => {
+    if (location.protocol === 'file:') return 'local';
+    let r;
+    try{
+      r = await fetch('/api/me', {credentials:'same-origin'});
+    }catch(err){
+      // Não dá pra saber se é servidor fora do ar ou hospedagem sem servidor; local é o
+      // comportamento antigo, mas avisa para ninguém achar que está gravando no banco do time.
+      mostrarErroConexao('⚠ Não consegui falar com o servidor. Usando apenas os dados deste navegador.');
+      return 'local';
+    }
+    if (r.ok){ usuarioAtual = (await r.json()).user; return 'servidor'; }
+    if (r.status === 401){ await pedirLogin(); return 'servidor'; }
+    return 'local'; // 404 etc.: hospedado sem servidor (GitHub Pages, Netlify)
+  })();
+  modoPronto.then(atualizarBarraUsuario);
+
+  async function impl(){ return (await modoPronto) === 'servidor' ? servidor : local; }
+
+  // ----- Barra do usuário + envio dos dados antigos deste navegador para o servidor -----
+  async function atualizarBarraUsuario(){
+    const barra = document.getElementById('barraUsuario');
+    if (!barra) return;
+    const modo = await modoPronto;
+    const sub = document.getElementById('subtituloModo');
+    if (modo !== 'servidor'){
+      barra.innerHTML = '<span class="hint">Modo local: os dados ficam só neste navegador.</span>';
+      return;
+    }
+    if (sub) sub.textContent = 'Catálogo, modelos, fotos e propostas ficam no banco compartilhado da equipe: todos os usuários veem os mesmos dados. Cada proposta é salva por cliente.';
+
+    let chavesLocais = [];
+    try{ chavesLocais = (await local.list('')).keys; }catch{}
+    let jaEnviado = false;
+    try{ jaEnviado = localStorage.getItem('propostas_migrado') === '1'; }catch{}
+
+    // Monta tudo antes e troca de uma vez: esta função pode rodar duas vezes em paralelo
+    // (ao abrir e logo após o login) e não pode duplicar os botões.
+    const itens = [];
+    const nome = document.createElement('span');
+    nome.className = 'hint';
+    nome.textContent = '👤 ' + usuarioAtual + ' · banco compartilhado';
+    itens.push(nome);
+
+    if (chavesLocais.length && !jaEnviado){
+      const mig = document.createElement('button');
+      mig.className = 'btn-ghost';
+      mig.textContent = `⬆ Enviar dados deste navegador para o servidor (${chavesLocais.length} itens)`;
+      mig.onclick = () => enviarDadosLocais(mig);
+      itens.push(mig);
+    }
+
+    const sair = document.createElement('button');
+    sair.className = 'btn-ghost';
+    sair.textContent = 'Sair';
+    sair.onclick = async () => {
+      await fetch('/api/logout', {method:'POST', credentials:'same-origin', headers:{'X-Requested-With':'propostas'}});
+      location.reload();
+    };
+    itens.push(sair);
+    barra.replaceChildren(...itens);
+  }
+
+  async function enviarDadosLocais(btn){
+    const chavesLocais = (await local.list('')).keys;
+    const noServidor = new Set((await servidor.list('')).keys);
+    const conflitos = chavesLocais.filter(k => noServidor.has(chaveServidor(k)));
+    let substituir = false;
+    if (conflitos.length){
+      substituir = confirm(
+        `${conflitos.length} dos ${chavesLocais.length} itens deste navegador já existem no servidor ` +
+        `(ex.: ${conflitos.slice(0, 3).join(', ')}).\n\n` +
+        `OK = substituir os do servidor pelos deste navegador.\nCancelar = manter os do servidor e enviar só os itens novos.`);
+    }else if (!confirm(`Enviar ${chavesLocais.length} itens deste navegador para o banco compartilhado?`)){
+      return;
+    }
+    btn.disabled = true;
+    let enviados = 0, pulados = 0, falhas = 0;
+    for (const k of chavesLocais){
+      if (!substituir && noServidor.has(chaveServidor(k))){ pulados++; continue; }
+      btn.textContent = `Enviando... ${enviados + pulados + falhas}/${chavesLocais.length}`;
+      try{
+        const v = await idbGet(k);
+        await servidor.set(k, typeof v === 'string' ? v : JSON.stringify(v));
+        enviados++;
+      }catch(err){ falhas++; console.error('Falha ao enviar', k, err); }
+    }
+    if (!falhas){ try{ localStorage.setItem('propostas_migrado', '1'); }catch{} }
+    alert(`Enviados: ${enviados}. Mantidos do servidor: ${pulados}. Falhas: ${falhas}.` +
+      (falhas ? '\nClique no botão de novo para tentar os que falharam.' : '\nOs dados continuam também neste navegador, como cópia de segurança.') +
+      '\n\nA página será recarregada.');
+    location.reload();
+  }
+
+  return {
+    async set(key, value){ return (await impl()).set(key, value); },
+    async get(key){ return (await impl()).get(key); },
+    async delete(key){ return (await impl()).delete(key); },
+    async list(prefix){ return (await impl()).list(prefix); },
   };
 })();
 
@@ -371,8 +594,8 @@ const log = (msg) => {
 };
 
 // ---------- Armazenamento persistente do app (window.storage) ----------
-// Guarda tudo como JSON (texto). Fica salvo neste navegador (IndexedDB, ver implementação de
-// window.storage no início deste arquivo) — não sincroniza entre aparelhos ou navegadores diferentes.
+// Guarda tudo como JSON (texto). Vai para o banco compartilhado do servidor ou, sem servidor,
+// para este navegador (IndexedDB). Ver implementação de window.storage no início deste arquivo.
 async function storageSet(key, val){
   try{
     await window.storage.set(key, JSON.stringify(val), false);
@@ -386,7 +609,10 @@ async function storageGet(key){
     const r = await window.storage.get(key, false);
     return r ? JSON.parse(r.value) : null;
   }catch(err){
-    return null; // chave inexistente ainda é normal (primeira vez)
+    // Chave inexistente já volta como null acima. Erro aqui é falha de leitura (ex.: servidor
+    // fora do ar): propaga, para o app não tratar como "vazio" e sobrescrever dados do time.
+    console.error('Falha ao ler', key, err);
+    throw err;
   }
 }
 async function storageDelete(key){

@@ -1,29 +1,59 @@
 # Gerador de Propostas — Solar Minas
 
-App de página única (`index.html`) para montar propostas comerciais e de manutenção da Solar Minas: importa a PCC (planilha de valores) e o catálogo de produtos (.xlsx), deixa escolher os produtos e fotos de cada proposta, e gera o documento final em `.docx` a partir de um modelo do Word — tudo direto no navegador, sem servidor.
+App de página única (`index.html`) para montar propostas comerciais e de manutenção da Solar Minas: importa a PCC (planilha de valores) e o catálogo de produtos (.xlsx), deixa escolher os produtos e fotos de cada proposta, e gera o documento final em `.docx` a partir de um modelo do Word. A geração do documento acontece no navegador; um servidor pequeno (pasta `server/`) guarda os dados num **banco compartilhado por toda a equipe**, com login.
+
+## Armazenamento de dados: dois modos
+
+O app escolhe o modo sozinho ao abrir:
+
+- **Servidor (banco compartilhado)**: quando aberto pelo endereço da VPS. Pede usuário e senha, e todos os usuários leem e gravam os mesmos catálogo, modelos, fotos, banco de imagens e propostas. O canto superior direito mostra `👤 usuário · banco compartilhado`.
+- **Local**: quando não há servidor (arquivo aberto direto, GitHub Pages, Netlify). Os dados ficam só naquele navegador (IndexedDB), como no app antigo.
+
+Exceção: o rascunho de proposta ainda sem nome de cliente é separado por usuário, para um não sobrescrever o do outro. Quando duas pessoas editam a **mesma** proposta ao mesmo tempo, vale a última gravação.
+
+### Levar os dados antigos para o servidor
+
+Quem já usava o app no navegador vê, depois de fazer login, o botão **"⬆ Enviar dados deste navegador para o servidor"**. Ele copia catálogo, fotos, modelos e propostas salvas para o banco compartilhado. Se algum item já existir no servidor, o app pergunta se deve substituir ou manter. Os dados continuam no navegador como cópia de segurança.
+
+Os botões **"Exportar dados (.json)"** / **"Importar dados (.json)"** continuam funcionando para levar uma proposta (sem fotos) manualmente.
+
+## Instalar na VPS (Ubuntu)
+
+Como root na VPS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/julianociriacojr-ship-it/Propostas-Solar-Minas/HEAD/deploy/install.sh | bash
+```
+
+O script (`deploy/install.sh`) instala Node.js e Caddy, baixa este repositório em `/opt/propostas`, cria o serviço `propostas` (systemd), configura HTTPS automático, backup diário e pede o nome do primeiro usuário. No fim ele mostra o endereço do app.
+
+- **Endereço**: sem domínio próprio, usa um endereço gratuito do [sslip.io](https://sslip.io) com o IP da VPS, por exemplo `https://propostas.203-0-113-10.sslip.io`, com certificado HTTPS válido. Para usar um domínio próprio depois, aponte o DNS (registro A) para o IP da VPS e rode de novo: `DOMAIN=propostas.seudominio.com.br bash /opt/propostas/deploy/install.sh`.
+- **Dados**: ficam em `/var/lib/propostas` (`kv/` com os dados, `users.json` com usuários e senhas em hash, `activity.log` com quem gravou o quê e quando).
+- **Backup**: todo dia em `/var/backups/propostas` (mantém 30 dias). Para restaurar: `systemctl stop propostas`, extrair o `.tar.gz` em `/var/lib`, `systemctl start propostas`. Vale copiar esses arquivos para fora da VPS de vez em quando.
+
+Administração na VPS:
+
+```bash
+propostas add-user maria      # cria usuário (ou troca a senha); pede a senha
+propostas remove-user maria   # remove e derruba as sessões dele
+propostas list-users
+propostas update              # baixa a versão mais nova do GitHub e reinicia
+propostas logs
+propostas backup              # backup imediato
+```
+
+**Fluxo de atualização**: altere o código, faça push para a branch principal no GitHub e rode `propostas update` na VPS. Todo mundo recebe a versão nova ao recarregar a página.
 
 ## Como rodar localmente
 
-Não tem build nem dependências de Node — é só abrir o arquivo:
-
 ```bash
-python3 -m http.server 8080
-# depois acesse http://localhost:8080
+node server/manage.js add-user teste   # cria um usuário (dados em ./data)
+npm start                              # http://localhost:3000
 ```
 
-(Abrir o `index.html` direto com duplo clique também funciona na maioria dos navegadores, mas alguns recursos, como `webkitdirectory` para importar pastas de fotos, funcionam melhor servido por http.)
+Sem o servidor, abrir o `index.html` direto (ou `python3 -m http.server 8080`) também funciona, no modo local.
 
-## Armazenamento de dados
-
-O app salva catálogo, modelo `.docx`, fotos e propostas por cliente automaticamente **neste navegador**, usando IndexedDB. Isso significa:
-
-- Os dados persistem entre sessões no mesmo navegador/computador.
-- **Não sincronizam** entre computadores, navegadores diferentes ou usuários diferentes — cada pessoa que abrir o app num aparelho novo começa com o catálogo vazio.
-- Limpar os dados do navegador (ou usar aba anônima) apaga o que foi salvo.
-
-Se no futuro for necessário compartilhar catálogo/propostas entre várias pessoas/aparelhos, o próximo passo natural é adicionar um backend (ex: Netlify Functions + banco de dados como Supabase/Firebase) para centralizar esse armazenamento — hoje o app funciona 100% client-side.
-
-Use os botões **"Exportar dados (.json)"** / **"Importar dados (.json)"** para levar uma proposta (sem fotos) de um navegador para outro manualmente.
+As bibliotecas (SheetJS/xlsx 0.18.5, JSZip 3.10.1, docx-preview 0.4.0) ficam em `vendor/`, sem depender de CDN.
 
 ## Banco de imagens (fotos dos produtos)
 
@@ -38,7 +68,7 @@ No Passo 2 (Catálogo), o botão **"🖼️ Banco de imagens"** deixa subir uma 
 
 ## Pré-visualização do documento
 
-O botão **"👁️ Pré-visualizar documento"** gera a proposta (mesmo processo do "Gerar proposta") e mostra o resultado renderizado numa janela, antes de baixar — dá pra conferir dados, fotos e tabelas sem precisar abrir o Word. Usa a biblioteca [`docx-preview`](https://github.com/VolodymyrBaydalka/docxjs) (carregada via CDN, junto com XLSX e JSZip). A renderização não é 100% pixel-perfect ao Word (fontes e detalhes finos podem variar), mas é fiel o suficiente pra pegar erro de dado ou formatação antes de enviar pro cliente. O botão "⬇ Baixar .docx" dentro da prévia baixa exatamente o mesmo arquivo que foi renderizado, sem gerar de novo.
+O botão **"👁️ Pré-visualizar documento"** gera a proposta (mesmo processo do "Gerar proposta") e mostra o resultado renderizado numa janela, antes de baixar — dá pra conferir dados, fotos e tabelas sem precisar abrir o Word. Usa a biblioteca [`docx-preview`](https://github.com/VolodymyrBaydalka/docxjs) (em `vendor/`, junto com XLSX e JSZip). A renderização não é 100% pixel-perfect ao Word (fontes e detalhes finos podem variar), mas é fiel o suficiente pra pegar erro de dado ou formatação antes de enviar pro cliente. O botão "⬇ Baixar .docx" dentro da prévia baixa exatamente o mesmo arquivo que foi renderizado, sem gerar de novo.
 
 ## Modelo comercial (.docx) — estrutura esperada
 
@@ -54,35 +84,19 @@ O modelo de **manutenção** continua usando a lógica antiga (tokens `[MATERIAL
 
 A seção "Não Contemplado Nesta Proposta" (lista de itens editável) foi removida do app — no modelo comercial novo esse texto é fixo, dentro de "1.2 Informações Adicionais", e não é mais gerenciado pelo app.
 
-## Publicar e compartilhar
+## Publicar sem servidor (modo local)
 
-Como o app é um único `index.html` sem servidor, ele pode ser hospedado em qualquer lugar que sirva arquivos estáticos.
-
-### GitHub Pages (grátis, direto deste repositório)
-
-1. No GitHub, abra **Settings → Pages**.
-2. Em "Build and deployment", escolha **Source: Deploy from a branch**, selecione a branch e a pasta `/ (root)` e salve.
-3. Em 1 ou 2 minutos o app fica disponível em `https://<usuario>.github.io/Propostas-Solar-Minas/`.
-
-O arquivo `.nojekyll` na raiz faz o GitHub servir os arquivos como estão. Observação: GitHub Pages só é gratuito para repositórios **públicos** (em conta free). Se o repositório for privado, use o Netlify (abaixo) ou Cloudflare Pages.
-
-### Outras formas
-
-- **Usar localmente**: baixar o `index.html` e abrir no navegador (ou `python3 -m http.server`). Dá pra mandar o arquivo por e-mail/WhatsApp para alguém usar.
-- **Netlify na sua própria conta**: ver a seção abaixo.
-
-## Deploy no Netlify
-
-O repositório já inclui um `netlify.toml` configurado para publicar a raiz do projeto sem build:
-
-1. No Netlify, "Add new site" → "Import an existing project" → conecte este repositório GitHub.
-2. Build command: (vazio) — Publish directory: `.` (já vem definido no `netlify.toml`).
-3. Cada push na branch conectada gera um novo deploy automático.
+O `index.html` também pode ser publicado no GitHub Pages ou no Netlify (há um `netlify.toml` pronto). Nesses casos não há login nem banco compartilhado: cada navegador guarda os próprios dados.
 
 ## Estrutura
 
 ```
-index.html     # app completo (HTML + CSS + JS)
-netlify.toml   # configuração de deploy do Netlify
-.nojekyll      # faz o GitHub Pages servir os arquivos sem processar
+index.html          # app completo (HTML + CSS + JS)
+vendor/             # bibliotecas (xlsx, jszip, docx-preview)
+server/server.js    # servidor: entrega o app, login e banco compartilhado
+server/manage.js    # gerencia usuários (add-user, remove-user, list-users)
+server/users.js     # senhas em hash (scrypt)
+deploy/install.sh   # instalação/atualização na VPS Ubuntu
+netlify.toml        # deploy sem servidor no Netlify (modo local)
+.nojekyll           # deploy sem servidor no GitHub Pages (modo local)
 ```

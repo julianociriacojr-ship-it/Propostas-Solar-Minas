@@ -1,0 +1,12 @@
+{
+  "name": "propostas-solar-minas",
+  "private": true,
+  "description": "Gerador de Propostas Solar Minas: app + servidor com banco compartilhado",
+  "scripts": {
+    "start": "node server/server.js",
+    "add-user": "node server/manage.js add-user"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
